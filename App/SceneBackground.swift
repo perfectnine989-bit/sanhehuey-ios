@@ -128,7 +128,7 @@ struct DragonAura: View {
                 )
                 .opacity(0.40)
 
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 20.0)) { timeline in
                 let t = timeline.date.timeIntervalSinceReferenceDate
                 let p = CGFloat(fract(t / 8.0))
                 dragon

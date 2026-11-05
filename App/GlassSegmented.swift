@@ -2,7 +2,8 @@ import SwiftUI
 import UIKit
 
 /// Переключатель как в Telegram: прозрачная стеклянная «таблетка» едет за пальцем,
-/// слегка растягивается от скорости, увеличивается при нажатии и с пружиной встаёт на место.
+/// слегка растягивается от скорости и быстро встаёт на место. Переключение экрана
+/// не зависит от её анимации, поэтому рывков нет.
 struct GlassSegmented<Item: Hashable, Content: View>: View {
     let items: [Item]
     @Binding var selection: Item
@@ -12,6 +13,7 @@ struct GlassSegmented<Item: Hashable, Content: View>: View {
     let content: (Item, Bool) -> Content
 
     @State private var dragX: CGFloat? = nil
+    @State private var settled: Int = 0
     @State private var stretch: CGFloat = 0
     @State private var lastIndex: Int = -1
 
@@ -38,13 +40,11 @@ struct GlassSegmented<Item: Hashable, Content: View>: View {
             let count = items.count
             let segW = (geo.size.width - pad * 2) / CGFloat(max(count, 1))
             let maxX = segW * CGFloat(max(count - 1, 0))
-            let selIndex = items.firstIndex(of: selection) ?? 0
-            let baseX = CGFloat(selIndex) * segW
-            let thumbX = dragX ?? baseX
+            let thumbX = dragX ?? CGFloat(settled) * segW
             let liveIndex = max(0, min(count - 1, Int(((thumbX + segW / 2) / segW).rounded(.down))))
             let pressed = dragX != nil
-            let sx = (pressed ? 1.09 : 1.0) + stretch
-            let sy = (pressed ? 1.09 : 1.0) - stretch * 0.5
+            let sx = (pressed ? 1.08 : 1.0) + stretch
+            let sy = (pressed ? 1.08 : 1.0) - stretch * 0.5
 
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: corner + pad, style: .continuous)
@@ -59,14 +59,14 @@ struct GlassSegmented<Item: Hashable, Content: View>: View {
                     .liquidGlass(RoundedRectangle(cornerRadius: corner, style: .continuous), tint: tint, interactive: true)
                     .frame(width: segW, height: height)
                     .scaleEffect(x: sx, y: sy)
-                    .animation(.spring(response: 0.32, dampingFraction: 0.6), value: sx)
+                    .animation(.spring(response: 0.24, dampingFraction: 0.74), value: sx)
                     .offset(x: pad + thumbX, y: pad)
 
                 HStack(spacing: 0) {
                     ForEach(0..<count, id: \.self) { i in
                         content(items[i], i == liveIndex)
                             .frame(width: segW, height: height)
-                            .animation(.easeInOut(duration: 0.22), value: liveIndex)
+                            .animation(.easeOut(duration: 0.16), value: liveIndex)
                     }
                 }
                 .offset(x: pad, y: pad)
@@ -78,11 +78,11 @@ struct GlassSegmented<Item: Hashable, Content: View>: View {
                     .onChanged { value in
                         let x = min(max(value.location.x - pad - segW / 2, 0), maxX)
                         if dragX == nil {
-                            withAnimation(.spring(response: 0.34, dampingFraction: 0.78)) { dragX = x }
+                            withAnimation(.spring(response: 0.26, dampingFraction: 0.86)) { dragX = x }
                         } else {
                             dragX = x
                         }
-                        stretch = min(abs(value.velocity.width) / 3600, 0.16)
+                        stretch = min(abs(value.velocity.width) / 3800, 0.14)
                         let idx = Int((x / segW).rounded())
                         if idx != lastIndex {
                             if lastIndex != -1 {
@@ -95,14 +95,25 @@ struct GlassSegmented<Item: Hashable, Content: View>: View {
                         let x = min(max(value.location.x - pad - segW / 2, 0), maxX)
                         let idx = max(0, min(count - 1, Int((x / segW).rounded())))
                         lastIndex = -1
-                        withAnimation(.spring(response: 0.52, dampingFraction: 0.7)) {
+                        // Таблетка встаёт на место своей анимацией…
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
                             dragX = nil
                             stretch = 0
+                            settled = idx
+                        }
+                        // …а смена экрана идёт отдельно и сразу.
+                        if items[idx] != selection {
                             selection = items[idx]
                         }
                     }
             )
         }
         .frame(height: height + pad * 2)
+        .onAppear { settled = items.firstIndex(of: selection) ?? 0 }
+        .onChange(of: selection) { _, newValue in
+            if dragX == nil, let i = items.firstIndex(of: newValue), i != settled {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) { settled = i }
+            }
+        }
     }
 }

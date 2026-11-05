@@ -55,6 +55,7 @@ final class VPNManager: ObservableObject {
             traffic.start()
             if !silent {
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
+                SoundEngine.shared.play(.connect)
             }
         }
         if newStatus != .connected, previous == .connected {
@@ -63,6 +64,7 @@ final class VPNManager: ObservableObject {
             }
             sessionStart = nil
             traffic.stop()
+            SoundEngine.shared.play(.disconnect)
         }
     }
 

@@ -19,14 +19,15 @@ struct ContentView: View {
                 Group {
                     switch tab {
                     case .home:
-                        HomeScreen(palette: palette)
+                        HomeScreen(palette: palette).transition(.opacity)
                     case .cases:
-                        ComingSoon(title: "Кейсы", icon: "briefcase.fill", text: "Скоро здесь будут кейсы, как на сайте")
+                        CasesScreen().transition(.opacity)
                     case .profile:
-                        ProfileScreen(palette: palette)
+                        ProfileScreen(palette: palette).transition(.opacity)
                     }
                 }
                 .frame(maxHeight: .infinity)
+                .animation(.easeOut(duration: 0.18), value: tab)
 
                 GlassTabBar(selection: $tab, palette: palette)
                     .padding(.horizontal, 24)

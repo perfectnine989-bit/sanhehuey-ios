@@ -68,7 +68,7 @@ struct CasesScreen: View {
     @State private var showTopUp = false
     @State private var topUpNeed: Double?
     @State private var pendingPrize: Prize?
-    @State private var manualReward: ManualReward?
+    @State private var manualBox: ManualBox?
     @State private var showPremium = false
     @State private var toast: String?
 
@@ -133,7 +133,7 @@ struct CasesScreen: View {
         }
         .sheet(item: $chances) { def in ChancesSheet(def: def) }
         .sheet(isPresented: $showTopUp) { TopUpSheet(need: topUpNeed) }
-        .sheet(item: Binding(get: { manualReward.map { ManualBox(reward: $0) } }, set: { if $0 == nil { manualReward = nil } })) { box in
+        .sheet(item: $manualBox) { box in
             ManualRewardSheet(reward: box.reward)
         }
         .sheet(isPresented: $showPremium) { PremiumClaimSheet() }
@@ -151,7 +151,7 @@ struct CasesScreen: View {
         guard let prize = pendingPrize else { return }
         pendingPrize = nil
         if let manual = prize.manual {
-            manualReward = manual
+            manualBox = ManualBox(reward: manual)
         } else if prize.days == 0 && prize.name.lowercased().contains("premium") {
             showPremium = true
         }
