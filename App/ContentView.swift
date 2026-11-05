@@ -20,10 +20,10 @@ struct ContentView: View {
                     switch tab {
                     case .home:
                         HomeScreen(palette: palette)
-                    case .servers:
-                        ComingSoon(title: "Серверы", icon: "server.rack", text: "Выбор локаций появится здесь")
+                    case .cases:
+                        ComingSoon(title: "Кейсы", icon: "briefcase.fill", text: "Скоро здесь будут кейсы, как на сайте")
                     case .profile:
-                        ComingSoon(title: "Профиль", icon: "person.crop.circle", text: "Подписка и ключи появятся здесь")
+                        ProfileScreen(palette: palette)
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -49,6 +49,11 @@ struct HomeScreen: View {
         }
     }
 
+    private static func format(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval))
+        return String(format: "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
@@ -57,19 +62,27 @@ struct HomeScreen: View {
 
             VStack(spacing: 5) {
                 Text(vpn.statusText.uppercased())
-                    .font(Theme.title(20))
+                    .font(Theme.title(21))
                     .tracking(4)
                     .foregroundColor(statusColor)
                     .shadow(color: Color.black.opacity(0.9), radius: 6)
 
                 NeonBanner(color: palette.glow, since: vpn.status == .connected ? vpn.connectedDate : nil)
 
-                if vpn.status != .connected {
+                if vpn.status == .connected, let since = vpn.connectedDate {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(Self.format(context.date.timeIntervalSince(since)))
+                            .font(Theme.digits(16))
+                            .foregroundColor(Theme.goldLight)
+                            .shadow(color: Color.black.opacity(0.9), radius: 5)
+                    }
+                } else {
                     Text("Нажми на кнопку, чтобы подключиться")
                         .font(Theme.body(14))
                         .foregroundColor(Theme.muted)
                         .shadow(color: Color.black.opacity(0.9), radius: 5)
                 }
+
                 if let error = vpn.errorText {
                     Text(error)
                         .font(Theme.body(12))
@@ -88,16 +101,10 @@ struct HomeScreen: View {
             ModePicker(palette: palette)
                 .padding(.horizontal, 20)
 
-            GlassGroup(spacing: 10) {
-                HStack(spacing: 10) {
-                    InfoTile(title: "ПРОТОКОЛ", value: "Hysteria2", icon: "bolt.horizontal.fill", accent: palette.light)
-                    InfoTile(title: "МАСКА", value: "Salamander", icon: "eye.slash.fill", accent: palette.light)
-                    SessionTile(accent: palette.light)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 12)
+            TrafficStrip(traffic: vpn.traffic, palette: palette, active: vpn.status == .connected)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 12)
         }
     }
 }

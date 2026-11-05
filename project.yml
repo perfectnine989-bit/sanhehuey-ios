@@ -24,12 +24,12 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: СанХэХуэй
+        CFBundleDisplayName: SanHeHuey
         UILaunchScreen: {}
         UIUserInterfaceStyle: Dark
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIAppFonts: [oswald.ttf, PlayfairDisplaySC-Black.ttf, PlayfairDisplaySC-Bold.ttf, CormorantSC-Bold.ttf, Forum-Regular.ttf]
+        UIAppFonts: [CinzelDecorative-Black.ttf, Prata-Regular.ttf, YesevaOne-Regular.ttf, Ledger-Regular.ttf]
     entitlements:
       path: App/App.entitlements
       properties:
@@ -51,7 +51,7 @@ targets:
     info:
       path: Extension/Info.plist
       properties:
-        CFBundleDisplayName: СанХэХуэй Tunnel
+        CFBundleDisplayName: SanHeHuey Tunnel
         NSExtension:
           NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider

@@ -12,8 +12,11 @@ final class VPNManager: ObservableObject {
         didSet { UserDefaults.standard.set(mode.rawValue, forKey: "routeMode") }
     }
 
+    let traffic = TrafficMonitor()
+
     private var manager: NETunnelProviderManager?
     private var cancellable: AnyCancellable?
+    private var sessionStart: Date?
 
     init() {
         let saved = UserDefaults.standard.string(forKey: "routeMode") ?? ""
@@ -24,12 +27,7 @@ final class VPNManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] note in
                 guard let self, let conn = note.object as? NEVPNConnection else { return }
-                let previous = self.status
-                self.status = conn.status
-                self.connectedDate = conn.connectedDate
-                if conn.status == .connected, previous != .connected {
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                }
+                self.apply(conn.status, conn.connectedDate, silent: false)
             }
 
         Task { await refresh() }
@@ -43,6 +41,28 @@ final class VPNManager: ObservableObject {
         case .connecting, .reasserting: return "Подключение…"
         case .disconnecting: return "Отключение…"
         default: return "Не подключено"
+        }
+    }
+
+    private func apply(_ newStatus: NEVPNStatus, _ date: Date?, silent: Bool) {
+        let previous = status
+        status = newStatus
+        connectedDate = date
+
+        if newStatus == .connected, previous != .connected {
+            sessionStart = date ?? Date()
+            StatsStore.shared.markActiveToday()
+            traffic.start()
+            if !silent {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
+        }
+        if newStatus != .connected, previous == .connected {
+            if let start = sessionStart {
+                StatsStore.shared.finishSession(seconds: Date().timeIntervalSince(start))
+            }
+            sessionStart = nil
+            traffic.stop()
         }
     }
 
@@ -62,8 +82,7 @@ final class VPNManager: ObservableObject {
             let all = try await NETunnelProviderManager.loadAllFromPreferences()
             manager = all.first
             if let conn = manager?.connection {
-                status = conn.status
-                connectedDate = conn.connectedDate
+                apply(conn.status, conn.connectedDate, silent: true)
             }
         } catch {
             errorText = error.localizedDescription
@@ -74,10 +93,10 @@ final class VPNManager: ObservableObject {
         let m = manager ?? NETunnelProviderManager()
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = extensionBundleID()
-        proto.serverAddress = "Sanhehuey"
+        proto.serverAddress = "SanHeHuey"
         proto.providerConfiguration = ["mode": mode.rawValue]
         m.protocolConfiguration = proto
-        m.localizedDescription = "СанХэХуэй"
+        m.localizedDescription = "SanHeHuey"
         m.isEnabled = true
         try await m.saveToPreferences()
         try await m.loadFromPreferences()

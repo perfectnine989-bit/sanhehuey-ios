@@ -49,11 +49,12 @@ enum Theme {
         startPoint: .top, endPoint: .bottom
     )
 
-    // Шрифты: ар-деко / «крёстный отец»
-    static func hero(_ size: CGFloat) -> Font { .custom("PlayfairDisplaySC-Black", size: size) }
-    static func title(_ size: CGFloat) -> Font { .custom("PlayfairDisplaySC-Bold", size: size) }
-    static func label(_ size: CGFloat) -> Font { .custom("CormorantSC-Bold", size: size) }
-    static func body(_ size: CGFloat) -> Font { .custom("Forum", size: size) }
-    static func accent(_ size: CGFloat) -> Font { .custom("Forum", size: size) }
-    static func digits(_ size: CGFloat) -> Font { .custom("Oswald-Regular", size: size) }
+    // Шрифты
+    static func hero(_ size: CGFloat) -> Font { .custom("CinzelDecorative-Black", size: size) }
+    static func title(_ size: CGFloat) -> Font { .custom("Prata-Regular", size: size) }
+    static func label(_ size: CGFloat) -> Font { .custom("Prata-Regular", size: size) }
+    static func neon(_ size: CGFloat) -> Font { .custom("YesevaOne-Regular", size: size) }
+    static func body(_ size: CGFloat) -> Font { .custom("Ledger-Regular", size: size) }
+    static func accent(_ size: CGFloat) -> Font { .custom("Ledger-Regular", size: size) }
+    static func digits(_ size: CGFloat) -> Font { .custom("Ledger-Regular", size: size) }
 }

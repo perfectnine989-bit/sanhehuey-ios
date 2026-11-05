@@ -8,13 +8,13 @@ struct ModePicker: View {
         GlassSegmented(
             items: RouteMode.allCases,
             selection: Binding(get: { vpn.mode }, set: { vpn.setMode($0) }),
-            tint: palette.main.opacity(0.5),
-            height: 66,
-            corner: 24
+            tint: palette.main.opacity(0.14),
+            height: 62,
+            corner: 22
         ) { mode, isSelected in
             HStack(spacing: 10) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 19))
                     .foregroundColor(isSelected ? Color.white : Theme.goldDim)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(mode.title)

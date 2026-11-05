@@ -4,7 +4,7 @@ import UIKit
 struct PressScaleStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
@@ -20,9 +20,9 @@ struct RippleWaves: View {
                 ForEach(0..<3, id: \.self) { i in
                     let p = fract(t / 3.6 + Double(i) / 3.0)
                     Circle()
-                        .stroke(color.opacity((1 - p) * 0.5), lineWidth: 2)
-                        .frame(width: 250, height: 250)
-                        .scaleEffect(0.85 + CGFloat(p) * 0.5)
+                        .stroke(color.opacity((1 - p) * 0.35), lineWidth: 1.5)
+                        .frame(width: 266, height: 266)
+                        .scaleEffect(1.0 + CGFloat(p) * 0.18)
                 }
             }
             .opacity(active ? 1 : 0)
@@ -32,96 +32,30 @@ struct RippleWaves: View {
     }
 }
 
-/// Кольцо из золотой драконьей чешуи с камнями по сторонам света.
-struct ScaleRing: View {
-    let palette: Palette
+/// Дуга, бегущая по кольцу.
+struct SpinningArc: View {
+    let period: Double
+    let length: CGFloat
+    let color: Color
+    @State private var spin = false
 
     var body: some View {
-        ZStack {
-            // тело кольца
-            Circle()
-                .strokeBorder(
-                    AngularGradient(
-                        colors: [
-                            Color(hex: 0x6B4E22), Color(hex: 0xC9A15A), Color(hex: 0x3A2A10),
-                            Color(hex: 0xA9832F), Color(hex: 0x5A4119), Color(hex: 0xC9A15A), Color(hex: 0x6B4E22)
-                        ],
-                        center: .center
-                    ),
-                    lineWidth: 28
-                )
-                .frame(width: 288, height: 288)
-
-            // два ряда чешуи
-            Canvas { ctx, size in
-                let c = CGPoint(x: size.width / 2, y: size.height / 2)
-                let count = 54
-                for row in 0..<2 {
-                    let r: CGFloat = row == 0 ? 134 : 126
-                    let offset: Double = row == 0 ? 0.0 : 0.5
-                    for i in 0..<count {
-                        let a = (Double(i) + offset) / Double(count) * 2.0 * Double.pi
-                        let center = CGPoint(x: c.x + CGFloat(cos(a)) * r, y: c.y + CGFloat(sin(a)) * r)
-                        let rad: CGFloat = 9.5
-                        let rect = CGRect(x: center.x - rad, y: center.y - rad, width: rad * 2, height: rad * 2)
-                        let path = Path(ellipseIn: rect)
-                        ctx.fill(
-                            path,
-                            with: .linearGradient(
-                                Gradient(colors: [Color(hex: 0xF6E2AE), Color(hex: 0xB8903F), Color(hex: 0x5E4320)]),
-                                startPoint: CGPoint(x: rect.minX, y: rect.minY),
-                                endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
-                            )
-                        )
-                        ctx.stroke(path, with: .color(Color(hex: 0x2A1D0A).opacity(0.85)), lineWidth: 0.9)
-                    }
-                }
-            }
-            .frame(width: 288, height: 288)
-
-            // тонкие золотые кромки
-            Circle()
-                .stroke(
-                    LinearGradient(colors: [Color(hex: 0xFFF3D6), Theme.gold, Color(hex: 0x6B4E22)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 3
-                )
-                .frame(width: 294, height: 294)
-            Circle()
-                .stroke(
-                    LinearGradient(colors: [Color(hex: 0x2A1D0A), Theme.goldDim], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    lineWidth: 3
-                )
-                .frame(width: 232, height: 232)
-
-            // камни
-            ForEach(0..<4, id: \.self) { i in
-                let a = Double(i) * Double.pi / 2.0
-                gem
-                    .offset(x: CGFloat(cos(a)) * 130, y: CGFloat(sin(a)) * 130)
-            }
-        }
-    }
-
-    private var gem: some View {
         Circle()
-            .fill(
-                RadialGradient(
-                    colors: [Color.white, palette.light, palette.main],
-                    center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: 9
-                )
-            )
-            .frame(width: 13, height: 13)
-            .overlay(Circle().stroke(Color(hex: 0x2A1D0A), lineWidth: 1.2))
-            .shadow(color: palette.glow, radius: 6)
+            .trim(from: 0, to: length)
+            .stroke(color, style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
+            .shadow(color: color, radius: 6)
+            .rotationEffect(.degrees(spin ? 360 : 0))
+            .animation(.linear(duration: period).repeatForever(autoreverses: false), value: spin)
+            .onAppear { spin = true }
     }
 }
 
 struct PowerButton: View {
     @EnvironmentObject var vpn: VPNManager
     let palette: Palette
-    @State private var spin = false
 
-    private var hasRing: Bool { UIImage(named: "ring_dragon") != nil }
+    private var connecting: Bool { vpn.status == .connecting || vpn.status == .reasserting }
+    private var connected: Bool { vpn.status == .connected }
 
     private var label: String {
         switch vpn.status {
@@ -135,49 +69,54 @@ struct PowerButton: View {
     var body: some View {
         Button(action: { vpn.toggle() }) {
             ZStack {
-                RippleWaves(color: palette.glow, active: vpn.isOn)
-
-                ScaleRing(palette: palette)
-                    .shadow(color: palette.glow.opacity(0.5), radius: 18)
-                    .rotationEffect(.degrees(spin ? 360 : 0))
-                    .animation(.linear(duration: 90).repeatForever(autoreverses: false), value: spin)
-
-                // блик, бегущий по кольцу
-                Circle()
-                    .strokeBorder(
-                        AngularGradient(
-                            colors: [Color.clear, Color.clear, Color.white.opacity(0.7), Color.clear, Color.clear],
-                            center: .center
-                        ),
-                        lineWidth: 28
-                    )
-                    .frame(width: 288, height: 288)
-                    .blendMode(.overlay)
-                    .rotationEffect(.degrees(spin ? -360 : 0))
-                    .animation(.linear(duration: 10).repeatForever(autoreverses: false), value: spin)
-                    .allowsHitTesting(false)
-
-                if hasRing {
-                    Image("ring_dragon")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 300, height: 300)
-                }
-                neonRing
+                RippleWaves(color: palette.glow, active: connected)
+                ring
                 core
             }
-            .frame(width: 320, height: 320)
+            .frame(width: 300, height: 300)
         }
         .buttonStyle(PressScaleStyle())
-        .onAppear { spin = true }
     }
 
-    private var neonRing: some View {
-        Circle()
-            .stroke(palette.main, lineWidth: 2.5)
-            .frame(width: 224, height: 224)
-            .shadow(color: palette.glow, radius: 10)
-            .shadow(color: palette.glow.opacity(0.6), radius: 22)
+    /// Минималистичное кольцо: тонкая золотая линия + светящаяся дуга.
+    private var ring: some View {
+        ZStack {
+            Circle()
+                .stroke(Theme.gold.opacity(0.25), lineWidth: 0.8)
+                .frame(width: 290, height: 290)
+
+            Circle()
+                .stroke(
+                    connected
+                        ? AnyShapeStyle(palette.glow)
+                        : AnyShapeStyle(
+                            AngularGradient(
+                                colors: [
+                                    Theme.gold.opacity(0.22), Theme.goldLight, Theme.gold.opacity(0.22),
+                                    Theme.gold.opacity(0.6), Theme.gold.opacity(0.22)
+                                ],
+                                center: .center
+                            )
+                        ),
+                    lineWidth: 2
+                )
+                .frame(width: 260, height: 260)
+                .shadow(color: palette.glow.opacity(connected ? 0.7 : 0.2), radius: 12)
+                .animation(.easeInOut(duration: 0.6), value: connected)
+
+            if connecting {
+                SpinningArc(period: 1.3, length: 0.3, color: palette.light)
+                    .frame(width: 260, height: 260)
+            } else if !connected {
+                SpinningArc(period: 18, length: 0.07, color: Theme.goldLight)
+                    .frame(width: 260, height: 260)
+            }
+
+            Circle()
+                .fill(Theme.goldLight)
+                .frame(width: 5, height: 5)
+                .offset(y: -145)
+        }
     }
 
     private var core: some View {
@@ -185,38 +124,38 @@ struct PowerButton: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [palette.main.opacity(0.95), palette.main.opacity(0.4), Color.clear],
-                        center: .center, startRadius: 4, endRadius: 108
+                        colors: [palette.main.opacity(0.7), palette.main.opacity(0.22), Color.clear],
+                        center: .center, startRadius: 4, endRadius: 118
                     )
                 )
-                .frame(width: 216, height: 216)
-                .blur(radius: 6)
+                .frame(width: 236, height: 236)
+                .blur(radius: 8)
 
             VStack(spacing: 10) {
                 Image(systemName: "power")
-                    .font(.system(size: 56, weight: .light))
+                    .font(.system(size: 50, weight: .light))
                     .foregroundStyle(
                         LinearGradient(colors: [Color.white, palette.light], startPoint: .top, endPoint: .bottom)
                     )
-                    .shadow(color: palette.glow, radius: 10)
-                    .symbolEffect(.pulse, isActive: vpn.status == .connecting)
+                    .shadow(color: palette.glow, radius: 9)
+                    .symbolEffect(.pulse, isActive: connecting)
                 Text(label)
-                    .font(Theme.label(18))
+                    .font(Theme.label(15))
                     .tracking(3)
                     .foregroundColor(Theme.text)
             }
-            .frame(width: 206, height: 206)
-            .liquidGlass(Circle(), tint: palette.main.opacity(0.28), interactive: true)
+            .frame(width: 226, height: 226)
+            .liquidGlass(Circle(), tint: palette.main.opacity(0.16), interactive: true)
             .overlay(
                 Circle()
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.55), Color.clear, Color.white.opacity(0.18)],
+                            colors: [Color.white.opacity(0.5), Color.clear, Color.white.opacity(0.15)],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1.5
+                        lineWidth: 1.2
                     )
-                    .frame(width: 206, height: 206)
+                    .frame(width: 226, height: 226)
             )
         }
     }
