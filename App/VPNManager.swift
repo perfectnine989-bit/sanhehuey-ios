@@ -24,8 +24,12 @@ final class VPNManager: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] note in
                 guard let self, let conn = note.object as? NEVPNConnection else { return }
+                let previous = self.status
                 self.status = conn.status
                 self.connectedDate = conn.connectedDate
+                if conn.status == .connected, previous != .connected {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
             }
 
         Task { await refresh() }

@@ -10,7 +10,7 @@ env:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -64,8 +64,30 @@ jobs:
           print('Credentials written for', p.hostname)
           PY
 
+      - name: Select newest Xcode 26
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+          echo "Using $XC"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
       - name: Install tools
         run: brew install xcodegen ldid
+
+      - name: Extra images
+        run: |
+          mkdir -p Extras
+          python3 - <<'EOP'
+          import os, json, glob, shutil
+          A = 'App/Assets.xcassets'
+          for f in glob.glob('Extras/*.png') + glob.glob('Extras/*.jpg'):
+              name, ext = os.path.splitext(os.path.basename(f))
+              d = f'{A}/{name}.imageset'
+              os.makedirs(d, exist_ok=True)
+              shutil.copy(f, f'{d}/{name}{ext}')
+              json.dump({"images": [{"filename": f"{name}{ext}", "idiom": "universal"}], "info": {"author": "xcode", "version": 1}}, open(f'{d}/Contents.json', 'w'))
+              print('asset', name)
+          EOP
 
       - name: Generate Xcode project
         run: xcodegen generate
