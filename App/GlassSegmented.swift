@@ -15,7 +15,6 @@ struct GlassSegmented<Item: Hashable, Content: View>: View {
     @State private var dragX: CGFloat? = nil
     @State private var settled: Int = 0
     @State private var stretch: CGFloat = 0
-    @State private var lastIndex: Int = -1
 
     private let pad: CGFloat = 5
 
@@ -83,18 +82,10 @@ struct GlassSegmented<Item: Hashable, Content: View>: View {
                             dragX = x
                         }
                         stretch = min(abs(value.velocity.width) / 3800, 0.14)
-                        let idx = Int((x / segW).rounded())
-                        if idx != lastIndex {
-                            if lastIndex != -1 {
-                                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                            }
-                            lastIndex = idx
-                        }
                     }
                     .onEnded { value in
                         let x = min(max(value.location.x - pad - segW / 2, 0), maxX)
                         let idx = max(0, min(count - 1, Int((x / segW).rounded())))
-                        lastIndex = -1
                         // Таблетка встаёт на место своей анимацией…
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.84)) {
                             dragX = nil

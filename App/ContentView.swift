@@ -20,8 +20,6 @@ struct ContentView: View {
                     switch tab {
                     case .home:
                         HomeScreen(palette: palette).transition(.opacity)
-                    case .cases:
-                        CasesScreen().transition(.opacity)
                     case .profile:
                         ProfileScreen(palette: palette).transition(.opacity)
                     }

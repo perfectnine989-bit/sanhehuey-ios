@@ -1,69 +1,4 @@
-import Lottie
 import SwiftUI
-
-struct LottieSlot: UIViewRepresentable {
-    let data: Data
-
-    func makeUIView(context: Context) -> UIView {
-        let container = UIView()
-        container.backgroundColor = .clear
-        let view = LottieAnimationView()
-        view.contentMode = .scaleAspectFit
-        view.loopMode = .loop
-        view.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(view)
-        NSLayoutConstraint.activate([
-            view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            view.topAnchor.constraint(equalTo: container.topAnchor),
-            view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
-        if let animation = try? LottieAnimation.from(data: data) {
-            view.animation = animation
-            view.play()
-        }
-        return container
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {}
-}
-
-/// Эмодзи-статус Telegram: анимированный (Lottie), картинка или текст, как на сайте.
-struct EmojiStatusView: View {
-    let status: EmojiStatus
-    let size: CGFloat
-    @State private var lottieData: Data?
-    @State private var image: UIImage?
-
-    var body: some View {
-        Group {
-            if status.kind == "lottie", let data = lottieData {
-                LottieSlot(data: data)
-            } else if status.kind == "image", let image {
-                Image(uiImage: image)
-                    .renderingMode(status.repaint ? .template : .original)
-                    .resizable()
-                    .scaledToFit()
-                    .foregroundColor(Theme.gold)
-            } else {
-                Text(status.alt.isEmpty ? "✦" : status.alt)
-                    .font(.system(size: size * 0.8))
-            }
-        }
-        .frame(width: size, height: size)
-        .task(id: (status.lottieURL?.absoluteString ?? "") + (status.mediaURL?.absoluteString ?? "")) { await load() }
-    }
-
-    private func load() async {
-        if status.kind == "lottie", let url = status.lottieURL,
-           let (data, _) = try? await URLSession.shared.data(from: url) {
-            lottieData = data
-        } else if status.kind == "image", let url = status.mediaURL,
-                  let (data, _) = try? await URLSession.shared.data(from: url) {
-            image = UIImage(data: data)
-        }
-    }
-}
 
 struct ProfileScreen: View {
     @EnvironmentObject var vpn: VPNManager
@@ -94,10 +29,7 @@ struct ProfileScreen: View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 16) {
                 identity
-                if site.isLoggedIn {
-                    accountCard
-                    if let loyalty = site.loyalty { loyaltyCard(loyalty) }
-                }
+                if site.isLoggedIn { accountCard }
 
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                     statTile(duration(stats.totalSeconds), "ПОД ЗАЩИТОЙ", "shield.lefthalf.filled")
@@ -132,56 +64,33 @@ struct ProfileScreen: View {
         .refreshable { await site.refresh() }
     }
 
-    // MARK: личность
+    // MARK: верхняя карточка
 
     private var identity: some View {
         VStack(spacing: 14) {
-            ZStack(alignment: .bottomTrailing) {
-                Group {
-                    if let avatar = site.avatar {
-                        Image(uiImage: avatar).resizable().scaledToFill()
-                    } else {
-                        Image("avatar").resizable().scaledToFill()
-                    }
+            Group {
+                if let avatar = site.avatar {
+                    Image(uiImage: avatar).resizable().scaledToFill()
+                } else {
+                    Image("avatar").resizable().scaledToFill()
                 }
-                .frame(width: 108, height: 108)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Theme.goldGradient, lineWidth: 2.5))
-                .shadow(color: palette.glow.opacity(0.55), radius: 18)
-
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.goldGradient)
-                    .padding(8)
-                    .liquidGlass(Circle(), tint: Color.black.opacity(0.3))
-                    .offset(x: 4, y: 4)
             }
+            .frame(width: 108, height: 108)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(Theme.goldGradient, lineWidth: 2.5))
+            .shadow(color: palette.glow.opacity(0.55), radius: 18)
 
             if site.isLoggedIn {
                 VStack(spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text(site.displayName)
-                            .font(Theme.hero(28))
-                            .foregroundStyle(Theme.goldGradient)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                        if let emoji = site.emoji {
-                            EmojiStatusView(status: emoji, size: 28)
-                        }
-                    }
+                    Text(site.displayName)
+                        .font(Theme.hero(28))
+                        .foregroundStyle(Theme.goldGradient)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                     if !site.tgUsername.isEmpty {
                         Text("@" + site.tgUsername)
                             .font(Theme.body(14))
                             .foregroundColor(Theme.muted)
-                    }
-                    if let loyalty = site.loyalty {
-                        HStack(spacing: 6) {
-                            Image(systemName: "star.fill").font(.system(size: 11)).foregroundColor(palette.light)
-                            Text(loyalty.title).font(Theme.title(13)).foregroundColor(Theme.text)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .liquidGlass(Capsule())
                     }
                 }
                 if !site.telegramLinked {
@@ -192,7 +101,7 @@ struct ProfileScreen: View {
                     Text("BossTriad")
                         .font(Theme.hero(28))
                         .foregroundStyle(Theme.goldGradient)
-                    Text("Войди через Telegram, и здесь появятся твоя аватарка, статус и баланс.")
+                    Text("Войди через Telegram, и здесь появятся твоя аватарка и баланс.")
                         .font(Theme.body(13))
                         .foregroundColor(Theme.muted)
                         .multilineTextAlignment(.center)
@@ -206,7 +115,7 @@ struct ProfileScreen: View {
         .liquidGlass(RoundedRectangle(cornerRadius: 30, style: .continuous), tint: Color.black.opacity(0.22))
     }
 
-    // MARK: аккаунт и уровень
+    // MARK: аккаунт
 
     private var accountCard: some View {
         var rows: [(String, String)] = [("Баланс", "\(Int(site.balance.rounded())) ₽")]
@@ -220,46 +129,6 @@ struct ProfileScreen: View {
         }
         if site.telegramLinked && !site.tgUsername.isEmpty { rows.append(("Telegram", "@" + site.tgUsername)) }
         return infoCard(title: "АККАУНТ", rows: rows)
-    }
-
-    private func loyaltyCard(_ l: Loyalty) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("СТАТУС СЕМЬИ")
-                .font(Theme.label(12))
-                .tracking(4)
-                .foregroundColor(Theme.goldDim)
-            HStack {
-                Text(l.title).font(Theme.hero(22)).foregroundStyle(Theme.goldGradient)
-                Spacer()
-                Text("\(Int(l.totalSpent)) ₽").font(Theme.digits(18)).foregroundColor(Theme.goldLight)
-            }
-            HStack(spacing: 6) {
-                ForEach(Array(l.tiers.enumerated()), id: \.offset) { _, tier in
-                    let done = l.totalSpent >= tier.threshold
-                    VStack(spacing: 6) {
-                        Capsule()
-                            .fill(done ? Theme.jade : Color.white.opacity(0.12))
-                            .frame(height: 5)
-                        Text("\(Int(tier.threshold))₽")
-                            .font(Theme.body(10))
-                            .foregroundColor(done ? Theme.jade : Theme.muted)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-            if let next = l.nextTitle, !next.isEmpty {
-                Text("До «\(next)» осталось пополнить на \(Int(l.toNext)) ₽")
-                    .font(Theme.body(13))
-                    .foregroundColor(Theme.muted)
-            } else {
-                Text("Максимальный уровень")
-                    .font(Theme.title(13))
-                    .foregroundColor(Theme.jade)
-            }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlass(RoundedRectangle(cornerRadius: 24, style: .continuous), tint: Color.black.opacity(0.22))
     }
 
     private func statTile(_ value: String, _ title: String, _ icon: String) -> some View {

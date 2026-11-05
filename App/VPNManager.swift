@@ -54,8 +54,7 @@ final class VPNManager: ObservableObject {
             StatsStore.shared.markActiveToday()
             traffic.start()
             if !silent {
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-                SoundEngine.shared.play(.connect)
+                Haptics.connected()
             }
         }
         if newStatus != .connected, previous == .connected {
@@ -64,7 +63,7 @@ final class VPNManager: ObservableObject {
             }
             sessionStart = nil
             traffic.stop()
-            SoundEngine.shared.play(.disconnect)
+            Haptics.disconnected()
         }
     }
 
@@ -107,7 +106,7 @@ final class VPNManager: ObservableObject {
     }
 
     func toggle() {
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        Haptics.press()
         errorText = nil
         if isOn {
             manager?.connection.stopVPNTunnel()
@@ -125,7 +124,6 @@ final class VPNManager: ObservableObject {
 
     func setMode(_ newMode: RouteMode) {
         guard newMode != mode else { return }
-        UISelectionFeedbackGenerator().selectionChanged()
         mode = newMode
         if isOn {
             // Перезапускаем туннель, чтобы применились новые правила.
