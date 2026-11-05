@@ -1,0 +1,5 @@
+build/
+*.xcodeproj
+Frameworks/Libbox.xcframework
+sing-box-src/
+.DS_Store
