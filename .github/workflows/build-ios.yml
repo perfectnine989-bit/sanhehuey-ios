@@ -89,6 +89,15 @@ jobs:
               print('asset', name)
           EOP
 
+      - name: Python deps
+        run: python3 -m pip install --break-system-packages pillow numpy
+
+      - name: Fetch site assets (prizes, posters)
+        run: python3 tools/fetch_assets.py App/Assets.xcassets
+
+      - name: Generate sounds
+        run: python3 tools/make_sounds.py App/Resources/Sounds
+
       - name: Generate Xcode project
         run: xcodegen generate
 

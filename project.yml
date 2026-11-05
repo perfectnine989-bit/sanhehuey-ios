@@ -9,6 +9,10 @@ settings:
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
     ENABLE_BITCODE: NO
+packages:
+  Lottie:
+    url: https://github.com/airbnb/lottie-spm
+    from: 4.5.0
 targets:
   Sanhehuey:
     type: application
@@ -28,6 +32,7 @@ targets:
         UILaunchScreen: {}
         UIUserInterfaceStyle: Dark
         UIRequiresFullScreen: true
+        LSApplicationQueriesSchemes: [tg]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIAppFonts: [CinzelDecorative-Black.ttf, Prata-Regular.ttf, YesevaOne-Regular.ttf, Ledger-Regular.ttf]
     entitlements:
@@ -37,6 +42,7 @@ targets:
     dependencies:
       - target: SanhehueyTunnel
         embed: true
+      - package: Lottie
   SanhehueyTunnel:
     type: app-extension
     platform: iOS
