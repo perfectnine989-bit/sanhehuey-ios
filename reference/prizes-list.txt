@@ -1,0 +1,17 @@
+total 356
+drwxr-xr-x 2 root root  4096 Oct 11 07:48 .
+drwxr-xr-x 4 root root  4096 Oct 11 07:48 ..
+-rw-r--r-- 1 root root 22458 Oct 11 07:48 balance-100.webp
+-rw-r--r-- 1 root root 35770 Oct 11 07:48 music-prize-v16.webp
+-rw-r--r-- 1 root root 23116 Oct 11 07:48 second-chance.webp
+-rw-r--r-- 1 root root 24994 Oct 11 07:48 telegram-premium-1m.webp
+-rw-r--r-- 1 root root 22010 Oct 11 07:48 telegram-premium-1y.webp
+-rw-r--r-- 1 root root 17386 Oct 11 07:48 unlimited.webp
+-rw-r--r-- 1 root root 21606 Oct 11 07:48 vpn-14d.webp
+-rw-r--r-- 1 root root 20420 Oct 11 07:48 vpn-1m.webp
+-rw-r--r-- 1 root root 26554 Oct 11 07:48 vpn-1y.webp
+-rw-r--r-- 1 root root 21816 Oct 11 07:48 vpn-3d.webp
+-rw-r--r-- 1 root root 22558 Oct 11 07:48 vpn-3m.webp
+-rw-r--r-- 1 root root 21346 Oct 11 07:48 vpn-5d.webp
+-rw-r--r-- 1 root root 23718 Oct 11 07:48 vpn-6m.webp
+-rw-r--r-- 1 root root 21374 Oct 11 07:48 vpn-7d.webp
