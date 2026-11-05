@@ -29,7 +29,7 @@ targets:
         UIUserInterfaceStyle: Dark
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        UIAppFonts: [russo.ttf, oswald.ttf, playfair.ttf]
+        UIAppFonts: [oswald.ttf, PlayfairDisplaySC-Black.ttf, PlayfairDisplaySC-Bold.ttf, CormorantSC-Bold.ttf, Forum-Regular.ttf]
     entitlements:
       path: App/App.entitlements
       properties:

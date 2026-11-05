@@ -7,14 +7,14 @@ enum RouteMode: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .smart: return "Умный режим"
+        case .smart: return "Умный"
         case .global: return "Весь трафик"
         }
     }
 
     var caption: String {
         switch self {
-        case .smart: return "Россия напрямую"
+        case .smart: return "РФ напрямую"
         case .global: return "Всё через VPN"
         }
     }

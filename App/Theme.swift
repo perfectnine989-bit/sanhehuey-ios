@@ -36,22 +36,24 @@ struct Palette {
 
 enum Theme {
     static let bg = Color(hex: 0x050506)
-    static let surface = Color(hex: 0x0F1714)
-    static let card = Color(hex: 0x0D1210)
     static let gold = Color(hex: 0xC9A15A)
     static let goldLight = Color(hex: 0xE8CE94)
     static let goldDim = Color(hex: 0x9C8455)
     static let jade = Color(hex: 0x3FD9A0)
-    static let crimson = Color(hex: 0xBC002D)
+    static let crimson = Color(hex: 0xD81E3C)
     static let text = Color(hex: 0xEDE4D4)
-    static let muted = Color(hex: 0x8A8276)
+    static let muted = Color(hex: 0x948B7E)
 
     static let goldGradient = LinearGradient(
         colors: [Color(hex: 0xFFF1CF), Color(hex: 0xE8CE94), Color(hex: 0xC9A15A)],
         startPoint: .top, endPoint: .bottom
     )
 
-    static func title(_ size: CGFloat) -> Font { .custom("RussoOne-Regular", size: size) }
-    static func body(_ size: CGFloat) -> Font { .custom("Oswald-Regular", size: size) }
-    static func accent(_ size: CGFloat) -> Font { .custom("PlayfairDisplay-Regular", size: size) }
+    // Шрифты: ар-деко / «крёстный отец»
+    static func hero(_ size: CGFloat) -> Font { .custom("PlayfairDisplaySC-Black", size: size) }
+    static func title(_ size: CGFloat) -> Font { .custom("PlayfairDisplaySC-Bold", size: size) }
+    static func label(_ size: CGFloat) -> Font { .custom("CormorantSC-Bold", size: size) }
+    static func body(_ size: CGFloat) -> Font { .custom("Forum", size: size) }
+    static func accent(_ size: CGFloat) -> Font { .custom("Forum", size: size) }
+    static func digits(_ size: CGFloat) -> Font { .custom("Oswald-Regular", size: size) }
 }

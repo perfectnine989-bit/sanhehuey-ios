@@ -9,12 +9,12 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            SceneBackground(palette: palette)
+            SceneBackground(palette: palette, isOn: vpn.isOn)
 
             VStack(spacing: 0) {
                 HeaderView(palette: palette)
                     .padding(.horizontal, 20)
-                    .padding(.top, 6)
+                    .padding(.top, 8)
 
                 Group {
                     switch tab {
@@ -55,16 +55,21 @@ struct HomeScreen: View {
 
             PowerButton(palette: palette)
 
-            VStack(spacing: 6) {
+            VStack(spacing: 5) {
                 Text(vpn.statusText.uppercased())
                     .font(Theme.title(20))
                     .tracking(4)
                     .foregroundColor(statusColor)
-                Text(vpn.status == .connected ? vpn.mode.subtitle : "Нажми на кнопку, чтобы подключиться")
-                    .font(Theme.accent(14))
-                    .foregroundColor(Theme.muted)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+                    .shadow(color: Color.black.opacity(0.9), radius: 6)
+
+                NeonBanner(color: palette.glow, since: vpn.status == .connected ? vpn.connectedDate : nil)
+
+                if vpn.status != .connected {
+                    Text("Нажми на кнопку, чтобы подключиться")
+                        .font(Theme.body(14))
+                        .foregroundColor(Theme.muted)
+                        .shadow(color: Color.black.opacity(0.9), radius: 5)
+                }
                 if let error = vpn.errorText {
                     Text(error)
                         .font(Theme.body(12))
@@ -72,7 +77,7 @@ struct HomeScreen: View {
                         .multilineTextAlignment(.center)
                 }
             }
-            .frame(minHeight: 70)
+            .frame(minHeight: 84)
 
             Spacer(minLength: 8)
 
@@ -86,7 +91,7 @@ struct HomeScreen: View {
             GlassGroup(spacing: 10) {
                 HStack(spacing: 10) {
                     InfoTile(title: "ПРОТОКОЛ", value: "Hysteria2", icon: "bolt.horizontal.fill", accent: palette.light)
-                    InfoTile(title: "ОБФУСКАЦИЯ", value: "Salamander", icon: "eye.slash.fill", accent: palette.light)
+                    InfoTile(title: "МАСКА", value: "Salamander", icon: "eye.slash.fill", accent: palette.light)
                     SessionTile(accent: palette.light)
                 }
             }

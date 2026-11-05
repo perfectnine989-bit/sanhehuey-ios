@@ -25,6 +25,7 @@ final class MotionManager: ObservableObject {
 
 struct SceneBackground: View {
     let palette: Palette
+    let isOn: Bool
     @StateObject private var motion = MotionManager()
 
     private var hasBackdrop: Bool { UIImage(named: "backdrop") != nil }
@@ -59,7 +60,7 @@ struct SceneBackground: View {
                 BokehLights(color: palette.glow)
                     .offset(x: motion.x * 8, y: motion.y * 5)
 
-                NeonSign(color: palette.glow)
+                NeonSign(color: palette.glow, lit: isOn)
                     .position(x: geo.size.width * 0.12, y: geo.size.height * 0.2)
                     .offset(x: motion.x * 12, y: motion.y * 7)
 
@@ -68,8 +69,14 @@ struct SceneBackground: View {
 
                 SmokeLayer()
 
-                EmberField(color: palette.light)
+                EmberField(color: palette.light, glow: palette.glow)
                     .offset(x: -motion.x * 6, y: -motion.y * 4)
+
+                // Затемнение снизу, чтобы текст и карточки читались поверх дракона
+                LinearGradient(
+                    colors: [Color.clear, Color.black.opacity(0.62)],
+                    startPoint: UnitPoint(x: 0.5, y: 0.52), endPoint: .bottom
+                )
 
                 RadialGradient(
                     colors: [Color.clear, Color.black.opacity(0.8)],
@@ -106,14 +113,12 @@ struct DragonAura: View {
 
     var body: some View {
         ZStack {
-            // Дальнее свечение (дышит)
             dragon
                 .foregroundStyle(palette.glow)
                 .blur(radius: 28)
                 .opacity(breathe ? 0.60 : 0.32)
                 .blendMode(.plusLighter)
 
-            // Сам рисунок
             dragon
                 .foregroundStyle(
                     LinearGradient(
@@ -123,7 +128,6 @@ struct DragonAura: View {
                 )
                 .opacity(0.55)
 
-            // Блик, пробегающий по чешуе
             TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
                 let t = timeline.date.timeIntervalSinceReferenceDate
                 let p = CGFloat(fract(t / 8.0))
@@ -140,6 +144,17 @@ struct DragonAura: View {
                     .blendMode(.plusLighter)
             }
         }
+        // Дракон плавно гаснет к низу экрана
+        .mask(
+            LinearGradient(
+                stops: [
+                    .init(color: Color.white, location: 0.0),
+                    .init(color: Color.white, location: 0.5),
+                    .init(color: Color.white.opacity(0.2), location: 1.0)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
         .position(x: size.width * 0.52, y: size.height * 0.5)
         .onAppear {
             withAnimation(.easeInOut(duration: 3.6).repeatForever(autoreverses: true)) {
@@ -173,15 +188,17 @@ struct BokehLights: View {
     }
 }
 
-// MARK: - Неоновая вывеска
+// MARK: - Неоновая вывеска (ярче, когда VPN включён)
 
 struct NeonSign: View {
     let color: Color
+    let lit: Bool
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
             let flicker = 0.84 + 0.16 * sin(t * 3.1) * sin(t * 1.7 + 1.3)
+            let level = lit ? flicker : 0.32
             VStack(spacing: 4) {
                 ForEach(["三", "和", "会"], id: \.self) { glyph in
                     Text(glyph)
@@ -199,7 +216,7 @@ struct NeonSign: View {
                     .stroke(color, lineWidth: 2)
                     .shadow(color: color, radius: 8)
             )
-            .opacity(flicker)
+            .opacity(level)
         }
         .allowsHitTesting(false)
     }
@@ -223,30 +240,83 @@ struct SmokeLayer: View {
     }
 }
 
-// MARK: - Угольки
+// MARK: - Искры: летят вверх, оставляют горящий хвост, мерцают
+
+private func emberPoint(_ tt: Double, _ speed: Double, _ phase: Double, _ x0: Double, _ sway: Double, _ seed: Double, _ area: CGSize) -> CGPoint {
+    let p = fract(tt * speed + phase)
+    let x = (x0 + sin(tt * 0.9 + seed) * sway) * Double(area.width)
+    let y = Double(area.height) * (1.02 - p * 1.1)
+    return CGPoint(x: x, y: y)
+}
 
 struct EmberField: View {
     let color: Color
+    let glow: Color
 
     var body: some View {
         TimelineView(.animation) { timeline in
-            Canvas { ctx, size in
+            Canvas { ctx, area in
                 let t = timeline.date.timeIntervalSinceReferenceDate
-                for i in 0..<46 {
-                    let seed = Double(i) * 12.9898
-                    let speed = 0.03 + fract(sin(seed) * 43758.5453) * 0.05
-                    let phase = fract(sin(seed * 1.7) * 24634.6345)
-                    let progress = fract(t * speed + phase)
-                    let x0 = fract(sin(seed * 3.1) * 13758.5453)
-                    let x = (x0 + sin(t * 0.6 + seed) * 0.03) * Double(size.width)
-                    let y = Double(size.height) * (1.02 - progress * 1.1)
-                    let r = 1.1 + fract(sin(seed * 5.3) * 9758.5) * 2.0
-                    let alpha = sin(progress * Double.pi) * 0.9
+                ctx.blendMode = .plusLighter
 
-                    let glow = CGRect(x: x - r * 3, y: y - r * 3, width: r * 6, height: r * 6)
-                    ctx.fill(Path(ellipseIn: glow), with: .color(color.opacity(alpha * 0.18)))
-                    let core = CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)
-                    ctx.fill(Path(ellipseIn: core), with: .color(color.opacity(alpha)))
+                for i in 0..<44 {
+                    let seed = Double(i) * 12.9898
+                    let speed = 0.045 + fract(sin(seed) * 43758.5453) * 0.07
+                    let phase = fract(sin(seed * 1.7) * 24634.6345)
+                    let x0 = fract(sin(seed * 3.1) * 13758.5453)
+                    let sway = 0.03 + fract(sin(seed * 2.3) * 7919.1) * 0.05
+                    let thick = 0.7 + fract(sin(seed * 5.3) * 9758.5) * 1.5
+                    let big = i % 9 == 0
+
+                    let head = emberPoint(t, speed, phase, x0, sway, seed, area)
+                    let tail = emberPoint(t - 0.4, speed, phase, x0, sway, seed, area)
+
+                    let progress = fract(t * speed + phase)
+                    let fade = pow(sin(progress * Double.pi), 0.8)
+                    let twinkle = 0.55 + 0.45 * sin(t * (5 + fract(seed) * 6) + seed)
+                    let a = fade * twinkle
+
+                    var path = Path()
+                    path.move(to: tail)
+                    path.addLine(to: head)
+
+                    // широкое мягкое свечение
+                    ctx.stroke(
+                        path,
+                        with: .color(glow.opacity(a * 0.20)),
+                        style: StrokeStyle(lineWidth: thick * 5, lineCap: .round)
+                    )
+                    // цветной хвост: от затухающего к яркому
+                    ctx.stroke(
+                        path,
+                        with: .linearGradient(
+                            Gradient(colors: [glow.opacity(0), color.opacity(a * 0.85)]),
+                            startPoint: tail, endPoint: head
+                        ),
+                        style: StrokeStyle(lineWidth: thick * 1.6, lineCap: .round)
+                    )
+                    // раскалённая белая сердцевина
+                    ctx.stroke(
+                        path,
+                        with: .linearGradient(
+                            Gradient(colors: [Color.white.opacity(0), Color.white.opacity(a)]),
+                            startPoint: tail, endPoint: head
+                        ),
+                        style: StrokeStyle(lineWidth: thick * 0.7, lineCap: .round)
+                    )
+
+                    // крупные угольки с мягким ореолом
+                    if big {
+                        let r = 4.5 + thick * 2
+                        let rect = CGRect(x: head.x - r, y: head.y - r, width: r * 2, height: r * 2)
+                        ctx.fill(
+                            Path(ellipseIn: rect),
+                            with: .radialGradient(
+                                Gradient(colors: [Color.white.opacity(a), glow.opacity(a * 0.5), Color.clear]),
+                                center: head, startRadius: 0, endRadius: r
+                            )
+                        )
+                    }
                 }
             }
         }

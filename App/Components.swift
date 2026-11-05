@@ -24,53 +24,59 @@ struct HeaderView: View {
     let palette: Palette
 
     var body: some View {
-        HStack {
-            Image("logo")
-                .resizable()
-                .scaledToFill()
-                .frame(width: 42, height: 42)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Theme.goldDim.opacity(0.7), lineWidth: 1))
-                .padding(5)
-                .liquidGlass(Circle())
-                .frame(width: 104, alignment: .leading)
-
-            Spacer(minLength: 0)
-
-            VStack(spacing: 5) {
-                HStack(spacing: 7) {
-                    Text("СанХэХуэй")
-                        .font(Theme.accent(28))
-                        .foregroundStyle(Theme.goldGradient)
-                    Text("VPN")
-                        .font(Theme.accent(28))
-                        .foregroundColor(palette.main)
-                }
-                HStack(spacing: 8) {
-                    Rectangle().fill(Theme.goldDim.opacity(0.5)).frame(width: 26, height: 1)
-                    Text("三和会")
-                        .font(Theme.accent(13))
-                        .tracking(5)
-                        .foregroundColor(Theme.goldDim)
-                    Rectangle().fill(Theme.goldDim.opacity(0.5)).frame(width: 26, height: 1)
-                }
+        VStack(spacing: 6) {
+            HStack(spacing: 9) {
+                Text("СанХэХуэй")
+                    .font(Theme.hero(30))
+                    .foregroundStyle(Theme.goldGradient)
+                Text("VPN")
+                    .font(Theme.hero(30))
+                    .foregroundColor(palette.main)
+                    .shadow(color: palette.glow.opacity(0.7), radius: 8)
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
 
-            Spacer(minLength: 0)
-
-            HStack(spacing: 7) {
-                Circle()
-                    .fill(palette.glow)
-                    .frame(width: 8, height: 8)
-                    .shadow(color: palette.glow, radius: 5)
-                Text("Hysteria2")
-                    .font(Theme.body(12))
-                    .foregroundColor(Theme.text)
+            HStack(spacing: 10) {
+                Rectangle().fill(Theme.goldDim.opacity(0.5)).frame(width: 34, height: 1)
+                Text("三和会")
+                    .font(Theme.accent(14))
+                    .tracking(6)
+                    .foregroundColor(Theme.goldDim)
+                Rectangle().fill(Theme.goldDim.opacity(0.5)).frame(width: 34, height: 1)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .liquidGlass(Capsule())
-            .frame(width: 104, alignment: .trailing)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// «Под защитой Триады»: выключенная неоновая трубка, которая вспыхивает при подключении.
+struct NeonBanner: View {
+    let color: Color
+    let since: Date?
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let level: Double = {
+                guard let since else { return 0 }
+                let age = timeline.date.timeIntervalSince(since)
+                if age < 0 { return 0 }
+                if age < 1.6 {
+                    let steps: [Double] = [0, 0.9, 0.1, 1, 0.2, 0.15, 1, 0.5, 1, 1]
+                    let idx = min(steps.count - 1, Int(age / 0.16))
+                    return steps[idx]
+                }
+                return 0.93 + 0.07 * sin(timeline.date.timeIntervalSinceReferenceDate * 5)
+            }()
+            Text("ПОД ЗАЩИТОЙ ТРИАДЫ")
+                .font(Theme.title(19))
+                .tracking(3)
+                .foregroundColor(Color.white.opacity(0.10 + 0.85 * level))
+                .shadow(color: color.opacity(level), radius: 3)
+                .shadow(color: color.opacity(level), radius: 10)
+                .shadow(color: color.opacity(0.7 * level), radius: 22)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
     }
 }
@@ -82,7 +88,7 @@ struct SectionTitle: View {
         HStack(spacing: 12) {
             Rectangle().fill(Theme.goldDim.opacity(0.45)).frame(height: 1)
             Text(text)
-                .font(Theme.body(12))
+                .font(Theme.label(14))
                 .tracking(5)
                 .foregroundColor(Theme.goldDim)
                 .fixedSize()
@@ -104,7 +110,7 @@ struct InfoTile: View {
                     .font(.system(size: 11))
                     .foregroundColor(accent)
                 Text(title)
-                    .font(Theme.body(10))
+                    .font(Theme.label(12))
                     .tracking(2)
                     .foregroundColor(Theme.goldDim)
             }
@@ -116,7 +122,7 @@ struct InfoTile: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlass(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .liquidGlass(RoundedRectangle(cornerRadius: 20, style: .continuous), tint: Color.black.opacity(0.28))
     }
 }
 
@@ -145,44 +151,22 @@ struct SessionTile: View {
 struct GlassTabBar: View {
     @Binding var selection: AppTab
     let palette: Palette
-    @Namespace private var ns
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(AppTab.allCases, id: \.self) { tab in
-                item(tab)
+        GlassSegmented(
+            items: AppTab.allCases,
+            selection: $selection,
+            tint: palette.main.opacity(0.35),
+            height: 54,
+            corner: 27
+        ) { tab, isSelected in
+            VStack(spacing: 3) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 18))
+                Text(tab.title)
+                    .font(Theme.label(13))
             }
-        }
-        .padding(6)
-        .background(Color.black.opacity(0.45), in: Capsule())
-        .overlay(Capsule().stroke(Theme.goldDim.opacity(0.35), lineWidth: 1))
-    }
-
-    private func item(_ tab: AppTab) -> some View {
-        let selected = selection == tab
-        return VStack(spacing: 4) {
-            Image(systemName: tab.icon)
-                .font(.system(size: 19))
-            Text(tab.title)
-                .font(Theme.body(11))
-        }
-        .foregroundColor(selected ? palette.light : Theme.muted)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 9)
-        .background {
-            if selected {
-                Capsule()
-                    .fill(Color.clear)
-                    .liquidGlass(Capsule(), tint: palette.main.opacity(0.35), interactive: true)
-                    .matchedGeometryEffect(id: "tab", in: ns)
-            }
-        }
-        .contentShape(Capsule())
-        .onTapGesture {
-            UISelectionFeedbackGenerator().selectionChanged()
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                selection = tab
-            }
+            .foregroundColor(isSelected ? palette.light : Theme.muted)
         }
     }
 }
@@ -200,10 +184,10 @@ struct ComingSoon: View {
                     .font(.system(size: 38, weight: .light))
                     .foregroundStyle(Theme.goldGradient)
                 Text(title)
-                    .font(Theme.accent(24))
+                    .font(Theme.title(24))
                     .foregroundColor(Theme.text)
                 Text(text)
-                    .font(Theme.body(14))
+                    .font(Theme.body(15))
                     .foregroundColor(Theme.muted)
                     .multilineTextAlignment(.center)
             }
