@@ -13,11 +13,12 @@ enum SingConfig {
         "wb.ru", "rutube.ru", "dzen.ru", "sber.ru", "alfabank.ru", "vtb.ru"
     ]
 
-    static func build(mode: RouteMode) -> String {
+    /// `server` — уже готовый IPv4-адрес сервера (см. ServerResolver), чтобы запуск не зависел от DNS.
+    static func build(mode: RouteMode, server: String) -> String {
         let proxy: [String: Any] = [
             "type": "hysteria2",
             "tag": "proxy",
-            "server": Credentials.server,
+            "server": server,
             "server_port": Credentials.port,
             "password": Credentials.password,
             "obfs": [
@@ -34,6 +35,9 @@ enum SingConfig {
         var routeRules: [[String: Any]] = [
             ["action": "sniff"],
             ["protocol": "dns", "action": "hijack-dns"],
+            // QUIC (UDP 443) внутри туннеля отклоняем: приложения мгновенно переходят на TCP.
+            // QUIC поверх QUIC даёт зависания видео (Shorts) из-за двойного контроля перегрузки.
+            ["network": "udp", "port": 443, "action": "reject"],
             ["ip_is_private": true, "action": "route", "outbound": "direct"]
         ]
         var ruleSets: [[String: Any]] = []
@@ -68,7 +72,8 @@ enum SingConfig {
                     ["type": "https", "tag": "dns-remote", "server": "1.1.1.1", "detour": "proxy"]
                 ],
                 "rules": dnsRules,
-                "final": "dns-remote"
+                "final": "dns-remote",
+                "strategy": "ipv4_only"
             ],
             "inbounds": [[
                 "type": "tun",

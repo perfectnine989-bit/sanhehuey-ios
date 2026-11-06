@@ -43,7 +43,9 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let platform = PlatformInterface(self)
         self.platform = platform
 
-        let config = SingConfig.build(mode: mode)
+        let serverIP = ServerResolver.resolve(Credentials.server)
+        NSLog("[Sanhehuey] server \(Credentials.server) -> \(serverIP)")
+        let config = SingConfig.build(mode: mode, server: serverIP)
         let service = LibboxNewService(config, platform, &error)
         if let error { throw error }
         guard let service else {
