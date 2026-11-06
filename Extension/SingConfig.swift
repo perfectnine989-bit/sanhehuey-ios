@@ -13,22 +13,44 @@ enum SingConfig {
         "wb.ru", "rutube.ru", "dzen.ru", "sber.ru", "alfabank.ru", "vtb.ru"
     ]
 
+    /// UDP-порты сервера в порядке предпочтения. На сервере 4500, 3478 и 500 перенаправлены на Hysteria2.
+    /// Операторы их почти не трогают (IPsec NAT-T, STUN, IKE), в отличие от 443, который режут и тормозят.
+    static let udpPorts = [4500, 3478, 500]
+
     /// `server` — уже готовый IPv4-адрес сервера (см. ServerResolver), чтобы запуск не зависел от DNS.
     static func build(mode: RouteMode, server: String) -> String {
-        let proxy: [String: Any] = [
-            "type": "hysteria2",
-            "tag": "proxy",
-            "server": server,
-            "server_port": Credentials.port,
-            "password": Credentials.password,
-            "obfs": [
-                "type": "salamander",
-                "password": Credentials.obfsPassword
-            ],
-            "tls": [
-                "enabled": true,
-                "server_name": Credentials.sni
+        // Несколько входов на один сервер. Пока проверка не завершена, идёт первый (4500),
+        // потом группа сама держится того порта, который отвечает быстрее всех.
+        func hysteria(tag: String, port: Int) -> [String: Any] {
+            return [
+                "type": "hysteria2",
+                "tag": tag,
+                "server": server,
+                "server_port": port,
+                "password": Credentials.password,
+                "obfs": [
+                    "type": "salamander",
+                    "password": Credentials.obfsPassword
+                ],
+                "tls": [
+                    "enabled": true,
+                    "server_name": Credentials.sni
+                ]
             ]
+        }
+        var ports = udpPorts
+        if !ports.contains(Credentials.port) { ports.append(Credentials.port) }
+        let tags: [String] = ports.map { "hy2-\($0)" }
+        let endpoints: [[String: Any]] = ports.map { hysteria(tag: "hy2-\($0)", port: $0) }
+        let proxy: [String: Any] = [
+            "type": "urltest",
+            "tag": "proxy",
+            "outbounds": tags,
+            "url": "https://www.gstatic.com/generate_204",
+            "interval": "30s",
+            "tolerance": 100,
+            "idle_timeout": "30m",
+            "interrupt_exist_connections": false
         ]
 
         var dnsRules: [[String: Any]] = []
@@ -64,6 +86,9 @@ enum SingConfig {
         ]
         if !ruleSets.isEmpty { route["rule_set"] = ruleSets }
 
+        let direct: [String: Any] = ["type": "direct", "tag": "direct"]
+        let outbounds: [[String: Any]] = [proxy] + endpoints + [direct]
+
         let config: [String: Any] = [
             "log": ["level": "warn", "timestamp": true],
             "dns": [
@@ -83,10 +108,7 @@ enum SingConfig {
                 "auto_route": true,
                 "stack": "mixed"
             ]],
-            "outbounds": [
-                proxy,
-                ["type": "direct", "tag": "direct"]
-            ],
+            "outbounds": outbounds,
             "route": route
         ]
 
