@@ -40,36 +40,46 @@ enum RouteMode: String, CaseIterable {
 }
 
 /// Стратегии обхода DPI для режима «Без сервера».
-/// В ядре sing-box 1.12 есть два механизма: разрезание ClientHello на TLS-записи
-/// и на TCP-сегменты. Стратегии комбинируют механизм и охват (все сайты или только известные заблокированные).
+/// Почти все работают через встроенный движок ByeDPI (локальный прокси внутри расширения),
+/// «Записи (лёгкий)» — средствами самого sing-box, без движка.
 enum DPIStrategy: String, CaseIterable {
-    case recordAll       // TLS-записи, для всех нероссийских сайтов
-    case recordBlocked   // TLS-записи, только для известных заблокированных
-    case segmentAll      // TCP-сегменты, для всех нероссийских сайтов
-    case segmentBlocked  // TCP-сегменты, только для известных заблокированных
-    case dnsOnly         // без фрагментации: только шифрованный DNS и запрет QUIC
+    case auto       // авто-цепочка: при неудаче сам переходит к следующему приёму и запоминает удачный
+    case disorder   // часть ClientHello с TTL=1, досылается после второй: DPI видит пакеты не по порядку
+    case oob        // разрез + «срочный» байт, который DPI учитывает, а сайт нет
+    case disoob     // disorder + OOB
+    case sniSplit   // разрез внутри имени сайта + disorder
+    case record     // лёгкий: разрез на TLS-записи средствами sing-box
+    case custom     // своя строка параметров ByeDPI
 
     var title: String {
         switch self {
-        case .recordAll: return "Записи · все"
-        case .recordBlocked: return "Записи · точечно"
-        case .segmentAll: return "Сегменты · все"
-        case .segmentBlocked: return "Сегменты · точечно"
-        case .dnsOnly: return "Только DNS"
+        case .auto: return "Авто-цепочка"
+        case .disorder: return "Disorder"
+        case .oob: return "OOB"
+        case .disoob: return "DisOOB"
+        case .sniSplit: return "Разрез по SNI"
+        case .record: return "Записи (лёгкий)"
+        case .custom: return "Своя стратегия"
         }
     }
 
-    /// Параметры фрагментации для правила маршрута sing-box (nil — без фрагментации).
-    var fragment: [String: Any]? {
+    /// Параметры движка ByeDPI. nil — стратегия работает без движка.
+    func engineArgs(custom: String) -> String? {
         switch self {
-        case .recordAll, .recordBlocked:
-            return ["tls_record_fragment": true]
-        case .segmentAll, .segmentBlocked:
-            return ["tls_fragment": true, "tls_fragment_fallback_delay": "100ms"]
-        case .dnsOnly:
-            return nil
+        case .auto: return "-d1 -r1+s -At,s -o1 -r1+s -At,s -q1+s -At,s -s1+s -d3+s -r1+s"
+        case .disorder: return "-d1 -r1+s"
+        case .oob: return "-o1 -r1+s"
+        case .disoob: return "-q1+s"
+        case .sniSplit: return "-s1+s -d3+s"
+        case .record: return nil
+        case .custom:
+            let text = custom.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.isEmpty ? "-d1 -r1+s" : text
         }
     }
 
-    var onlyBlocked: Bool { self == .recordBlocked || self == .segmentBlocked }
+    /// Фрагментация средствами sing-box (только для лёгкой стратегии).
+    var fragment: [String: Any]? {
+        self == .record ? ["tls_record_fragment": true] : nil
+    }
 }

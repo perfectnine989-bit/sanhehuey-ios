@@ -48,6 +48,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: online.sanhehuey.vpn.tunnel
         OTHER_LDFLAGS: ["-lresolv"]
+        OTHER_CFLAGS: ["-Dmain=byedpi_main", "-Wno-everything"]
+        SWIFT_OBJC_BRIDGING_HEADER: Extension/ByeDPIBridge.h
         SKIP_INSTALL: YES
     info:
       path: Extension/Info.plist

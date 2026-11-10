@@ -102,7 +102,11 @@ final class VPNManager: ObservableObject {
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = extensionBundleID()
         proto.serverAddress = "SanHeHuey"
-        proto.providerConfiguration = ["mode": mode.rawValue, "strategy": currentStrategy.rawValue]
+        proto.providerConfiguration = [
+            "mode": mode.rawValue,
+            "strategy": currentStrategy.rawValue,
+            "bdargs": StrategyStore.customArgs
+        ]
         m.protocolConfiguration = proto
         m.localizedDescription = "SanHeHuey"
         m.isEnabled = true

@@ -26,39 +26,48 @@ enum SingConfig {
         "signal.org", "proton.me", "protonmail.com", "soundcloud.com", "sndcdn.com", "viber.com"
     ]
 
-    /// Конфиг без единого соединения с сервером: всё напрямую, обход DPI фрагментацией ClientHello.
-    static func buildDirect(strategy: DPIStrategy) -> String {
+    /// Порт встроенного движка ByeDPI (слушает только 127.0.0.1 внутри расширения).
+    static let enginePort = 10801
+
+    /// Конфиг без единого соединения с сервером: всё напрямую, обход DPI на телефоне.
+    static func buildDirect(strategy: DPIStrategy, customArgs: String) -> String {
+        let useEngine = strategy.engineArgs(custom: customArgs) != nil
+
         var routeRules: [[String: Any]] = [
             ["action": "sniff"],
             ["protocol": "dns", "action": "hijack-dns"],
-            // QUIC режем, чтобы приложения ушли на TCP, где работает фрагментация
+            // QUIC режем, чтобы приложения ушли на TCP, где работает обход
             ["network": "udp", "port": 443, "action": "reject"],
             ["ip_is_private": true, "action": "route", "outbound": "direct"],
-            // Россия — обычное прямое соединение, без фрагментации
+            // Россия — обычное прямое соединение, без обхода
             ["domain_suffix": directSuffixes, "action": "route", "outbound": "direct"]
         ]
         var ruleSets: [[String: Any]] = []
 
-        // 1) Известные заблокированные (YouTube и т.п.) режем всегда, даже если сервер стоит внутри России:
-        //    видео YouTube часто отдают кэши Google с российскими адресами, и раньше они шли без обхода.
-        if let fragment = strategy.fragment {
-            var rule: [String: Any] = ["domain_suffix": blockedSuffixes, "action": "route", "outbound": "direct"]
-            for (key, value) in fragment { rule[key] = value }
-            routeRules.append(rule)
+        // Как отправлять то, что нужно обходить
+        func bypassRule(_ match: [String: Any]) -> [String: Any] {
+            var rule = match
+            rule["action"] = "route"
+            if useEngine {
+                rule["outbound"] = "desync"
+            } else {
+                rule["outbound"] = "direct"
+                for (key, value) in strategy.fragment ?? [:] { rule[key] = value }
+            }
+            return rule
         }
 
-        // 2) Остальные российские адреса — обычное прямое соединение
+        // 1) Известные заблокированные — всегда через обход, даже если сервер внутри России (кэши Google)
+        routeRules.append(bypassRule(["domain_suffix": blockedSuffixes]))
+
+        // 2) Остальные российские адреса — напрямую
         if let path = Bundle.main.path(forResource: "geoip-ru", ofType: "srs") {
             ruleSets.append(["type": "local", "tag": "geoip-ru", "format": "binary", "path": path])
             routeRules.append(["rule_set": ["geoip-ru"], "action": "route", "outbound": "direct"])
         }
 
-        // 3) Для стратегий «все» — фрагментация для любого другого TLS
-        if let fragment = strategy.fragment, !strategy.onlyBlocked {
-            var rule: [String: Any] = ["network": "tcp", "port": 443, "action": "route", "outbound": "direct"]
-            for (key, value) in fragment { rule[key] = value }
-            routeRules.append(rule)
-        }
+        // 3) Весь прочий веб (HTTPS и HTTP) — тоже через обход
+        routeRules.append(bypassRule(["network": "tcp", "port": [443, 80]]))
 
         var route: [String: Any] = [
             "rules": routeRules,
@@ -83,14 +92,23 @@ enum SingConfig {
             "auto_route": true,
             "stack": "mixed"
         ]
-        let direct: [String: Any] = ["type": "direct", "tag": "direct"]
+        var outbounds: [[String: Any]] = [["type": "direct", "tag": "direct"]]
+        if useEngine {
+            outbounds.append([
+                "type": "socks",
+                "tag": "desync",
+                "server": "127.0.0.1",
+                "server_port": enginePort,
+                "version": "5"
+            ])
+        }
         let dns: [String: Any] = ["servers": [doh], "final": "dns-doh", "strategy": "ipv4_only"]
 
         let config: [String: Any] = [
             "log": ["level": "warn", "timestamp": true],
             "dns": dns,
             "inbounds": [tun],
-            "outbounds": [direct],
+            "outbounds": outbounds,
             "route": route
         ]
         let data = (try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted])) ?? Data()

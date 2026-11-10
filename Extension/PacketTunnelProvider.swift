@@ -12,11 +12,13 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let mode = RouteMode(rawValue: raw ?? "") ?? .smart
         let rawStrategy = (protocolConfiguration as? NETunnelProviderProtocol)?
             .providerConfiguration?["strategy"] as? String
-        let strategy = DPIStrategy(rawValue: rawStrategy ?? "") ?? .recordAll
+        let strategy = DPIStrategy(rawValue: rawStrategy ?? "") ?? .auto
+        let customArgs = (protocolConfiguration as? NETunnelProviderProtocol)?
+            .providerConfiguration?["bdargs"] as? String ?? ""
 
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             do {
-                try start(mode: mode, strategy: strategy)
+                try start(mode: mode, strategy: strategy, customArgs: customArgs)
                 completionHandler(nil)
             } catch {
                 NSLog("[Sanhehuey] start failed: \(error.localizedDescription)")
@@ -25,7 +27,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
 
-    private func start(mode: RouteMode, strategy: DPIStrategy) throws {
+    private func start(mode: RouteMode, strategy: DPIStrategy, customArgs: String) throws {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let working = base.appendingPathComponent("working", isDirectory: true)
         let temp = base.appendingPathComponent("tmp", isDirectory: true)
@@ -50,7 +52,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         if mode == .direct {
             // Режим «Без сервера»: сервер не трогаем совсем, даже адрес не ищем.
             NSLog("[Sanhehuey] direct mode, strategy \(strategy.rawValue)")
-            config = SingConfig.buildDirect(strategy: strategy)
+            if let args = strategy.engineArgs(custom: customArgs) {
+                ByeDPIEngine.start(port: SingConfig.enginePort, strategyArgs: args)
+            }
+            config = SingConfig.buildDirect(strategy: strategy, customArgs: customArgs)
         } else {
             let serverIP = ServerResolver.resolve(Credentials.server)
             NSLog("[Sanhehuey] server \(Credentials.server) -> \(serverIP)")
@@ -72,6 +77,10 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             platform?.reset()
             platform = nil
             completionHandler()
+            if ByeDPIEngine.isRunning {
+                // Движок нельзя перезапустить в том же процессе: выходим, iOS поднимет расширение заново
+                DispatchQueue.global().asyncAfter(deadline: .now() + 0.3) { exit(0) }
+            }
         }
     }
 

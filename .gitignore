@@ -3,3 +3,4 @@ build/
 Frameworks/Libbox.xcframework
 sing-box-src/
 .DS_Store
+Extension/ByeDPI/
