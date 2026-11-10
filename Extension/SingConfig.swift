@@ -18,6 +18,7 @@ enum SingConfig {
     /// Сайты, которые чаще всего режут по имени (DPI). Для точечных стратегий фрагментация только для них.
     static let blockedSuffixes: [String] = [
         "youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "ggpht.com", "youtube-nocookie.com",
+        "youtubei.googleapis.com", "youtubekids.com", "yt.be", "gvt1.com",
         "instagram.com", "cdninstagram.com", "facebook.com", "fbcdn.net", "fb.com", "messenger.com",
         "whatsapp.com", "whatsapp.net", "x.com", "twitter.com", "twimg.com", "t.co",
         "discord.com", "discord.gg", "discordapp.com", "discordapp.net", "discord.media",
@@ -37,19 +38,25 @@ enum SingConfig {
             ["domain_suffix": directSuffixes, "action": "route", "outbound": "direct"]
         ]
         var ruleSets: [[String: Any]] = []
+
+        // 1) Известные заблокированные (YouTube и т.п.) режем всегда, даже если сервер стоит внутри России:
+        //    видео YouTube часто отдают кэши Google с российскими адресами, и раньше они шли без обхода.
+        if let fragment = strategy.fragment {
+            var rule: [String: Any] = ["domain_suffix": blockedSuffixes, "action": "route", "outbound": "direct"]
+            for (key, value) in fragment { rule[key] = value }
+            routeRules.append(rule)
+        }
+
+        // 2) Остальные российские адреса — обычное прямое соединение
         if let path = Bundle.main.path(forResource: "geoip-ru", ofType: "srs") {
             ruleSets.append(["type": "local", "tag": "geoip-ru", "format": "binary", "path": path])
             routeRules.append(["rule_set": ["geoip-ru"], "action": "route", "outbound": "direct"])
         }
-        if let fragment = strategy.fragment {
-            var rule: [String: Any] = ["action": "route", "outbound": "direct"]
+
+        // 3) Для стратегий «все» — фрагментация для любого другого TLS
+        if let fragment = strategy.fragment, !strategy.onlyBlocked {
+            var rule: [String: Any] = ["network": "tcp", "port": 443, "action": "route", "outbound": "direct"]
             for (key, value) in fragment { rule[key] = value }
-            if strategy.onlyBlocked {
-                rule["domain_suffix"] = blockedSuffixes
-            } else {
-                rule["network"] = "tcp"
-                rule["port"] = 443
-            }
             routeRules.append(rule)
         }
 
