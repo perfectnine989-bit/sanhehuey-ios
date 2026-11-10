@@ -12,11 +12,12 @@ struct SanhehueyApp: App {
                 .environmentObject(vpn)
                 .environmentObject(site)
                 .preferredColorScheme(.dark)
-                .task { await site.refresh() }
+                // В режиме «Без сервера» сами к сайту не обращаемся (он на том же сервере).
+                .task { if vpn.mode != .direct { await site.refresh() } }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
                         site.resumeLoginCheck()
-                        Task { await site.refresh() }
+                        if vpn.mode != .direct { Task { await site.refresh() } }
                     }
                 }
         }

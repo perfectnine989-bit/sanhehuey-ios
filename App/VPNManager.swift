@@ -14,6 +14,13 @@ final class VPNManager: ObservableObject {
 
     let traffic = TrafficMonitor()
 
+    /// Стратегия для режима «Без сервера», которую сейчас пробует подбор (nil — сохранённая для текущей сети).
+    var strategyOverride: DPIStrategy?
+    /// Во время подбора стратегии не вибрируем и не считаем сессии на каждом перезапуске.
+    var quiet = false
+
+    var currentStrategy: DPIStrategy { strategyOverride ?? StrategyStore.load(NetworkWatcher.shared.kind) }
+
     private var manager: NETunnelProviderManager?
     private var cancellable: AnyCancellable?
     private var sessionStart: Date?
@@ -37,7 +44,7 @@ final class VPNManager: ObservableObject {
 
     var statusText: String {
         switch status {
-        case .connected: return "Защищено"
+        case .connected: return mode == .direct ? "Обход включён" : "Защищено"
         case .connecting, .reasserting: return "Подключение…"
         case .disconnecting: return "Отключение…"
         default: return "Не подключено"
@@ -53,17 +60,17 @@ final class VPNManager: ObservableObject {
             sessionStart = date ?? Date()
             StatsStore.shared.markActiveToday()
             traffic.start()
-            if !silent {
+            if !silent && !quiet {
                 Haptics.connected()
             }
         }
         if newStatus != .connected, previous == .connected {
-            if let start = sessionStart {
+            if let start = sessionStart, !quiet {
                 StatsStore.shared.finishSession(seconds: Date().timeIntervalSince(start))
             }
             sessionStart = nil
             traffic.stop()
-            Haptics.disconnected()
+            if !quiet { Haptics.disconnected() }
         }
     }
 
@@ -95,7 +102,7 @@ final class VPNManager: ObservableObject {
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = extensionBundleID()
         proto.serverAddress = "SanHeHuey"
-        proto.providerConfiguration = ["mode": mode.rawValue]
+        proto.providerConfiguration = ["mode": mode.rawValue, "strategy": currentStrategy.rawValue]
         m.protocolConfiguration = proto
         m.localizedDescription = "SanHeHuey"
         m.isEnabled = true
@@ -120,6 +127,31 @@ final class VPNManager: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Перезапускает туннель с текущими настройками и ждёт, пока он поднимется.
+    func restartAndWait() async -> Bool {
+        errorText = nil
+        if isOn || status == .disconnecting {
+            manager?.connection.stopVPNTunnel()
+            for _ in 0..<40 {
+                if status == .disconnected || status == .invalid { break }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+        }
+        do {
+            let m = try await prepare()
+            try m.connection.startVPNTunnel()
+        } catch {
+            errorText = error.localizedDescription
+            return false
+        }
+        for _ in 0..<100 {
+            if status == .connected { return true }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        return status == .connected
     }
 
     func setMode(_ newMode: RouteMode) {

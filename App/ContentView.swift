@@ -66,7 +66,7 @@ struct HomeScreen: View {
                     .foregroundColor(statusColor)
                     .shadow(color: Color.black.opacity(0.9), radius: 6)
 
-                NeonBanner(color: palette.glow, since: vpn.status == .connected ? vpn.connectedDate : nil)
+                NeonBanner(color: palette.glow, since: vpn.status == .connected && vpn.mode != .direct ? vpn.connectedDate : nil)
 
                 if vpn.status == .connected, let since = vpn.connectedDate {
                     TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -99,6 +99,13 @@ struct HomeScreen: View {
 
             ModePicker(palette: palette)
                 .padding(.horizontal, 20)
+
+            if vpn.mode == .direct {
+                StrategyCard(palette: palette)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .transition(.opacity)
+            }
 
             TrafficStrip(traffic: vpn.traffic, palette: palette, active: vpn.status == .connected)
                 .padding(.horizontal, 20)

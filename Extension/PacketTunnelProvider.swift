@@ -10,10 +10,13 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let raw = (protocolConfiguration as? NETunnelProviderProtocol)?
             .providerConfiguration?["mode"] as? String
         let mode = RouteMode(rawValue: raw ?? "") ?? .smart
+        let rawStrategy = (protocolConfiguration as? NETunnelProviderProtocol)?
+            .providerConfiguration?["strategy"] as? String
+        let strategy = DPIStrategy(rawValue: rawStrategy ?? "") ?? .recordAll
 
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             do {
-                try start(mode: mode)
+                try start(mode: mode, strategy: strategy)
                 completionHandler(nil)
             } catch {
                 NSLog("[Sanhehuey] start failed: \(error.localizedDescription)")
@@ -22,7 +25,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
 
-    private func start(mode: RouteMode) throws {
+    private func start(mode: RouteMode, strategy: DPIStrategy) throws {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let working = base.appendingPathComponent("working", isDirectory: true)
         let temp = base.appendingPathComponent("tmp", isDirectory: true)
@@ -43,9 +46,16 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let platform = PlatformInterface(self)
         self.platform = platform
 
-        let serverIP = ServerResolver.resolve(Credentials.server)
-        NSLog("[Sanhehuey] server \(Credentials.server) -> \(serverIP)")
-        let config = SingConfig.build(mode: mode, server: serverIP)
+        let config: String
+        if mode == .direct {
+            // Режим «Без сервера»: сервер не трогаем совсем, даже адрес не ищем.
+            NSLog("[Sanhehuey] direct mode, strategy \(strategy.rawValue)")
+            config = SingConfig.buildDirect(strategy: strategy)
+        } else {
+            let serverIP = ServerResolver.resolve(Credentials.server)
+            NSLog("[Sanhehuey] server \(Credentials.server) -> \(serverIP)")
+            config = SingConfig.build(mode: mode, server: serverIP)
+        }
         let service = LibboxNewService(config, platform, &error)
         if let error { throw error }
         guard let service else {

@@ -12,18 +12,18 @@ struct ModePicker: View {
             height: 62,
             corner: 22
         ) { mode, isSelected in
-            HStack(spacing: 10) {
+            HStack(spacing: 7) {
                 Image(systemName: mode.icon)
-                    .font(.system(size: 19))
+                    .font(.system(size: 16))
                     .foregroundColor(isSelected ? Color.white : Theme.goldDim)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(mode.title)
-                        .font(Theme.title(15))
+                        .font(Theme.title(14))
                         .foregroundColor(isSelected ? Color.white : Theme.text)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                     Text(mode.caption)
-                        .font(Theme.body(12))
+                        .font(Theme.body(11))
                         .foregroundColor(isSelected ? Color.white.opacity(0.85) : Theme.muted)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
