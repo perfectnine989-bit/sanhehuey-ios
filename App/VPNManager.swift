@@ -108,7 +108,8 @@ final class VPNManager: ObservableObject {
         var settings: [String: Any] = [
             "mode": mode.rawValue,
             "strategy": currentStrategy.rawValue,
-            "bdargs": StrategyStore.customArgs
+            "bdargs": StrategyStore.customArgs,
+            "entry": EntryStore.current.rawValue
         ]
         // WARP касается только режима «Без сервера»
         if mode == .direct, WarpStore.enabled, let account = WarpStore.account {

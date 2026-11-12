@@ -100,6 +100,13 @@ struct HomeScreen: View {
             ModePicker(palette: palette)
                 .padding(.horizontal, 20)
 
+            if vpn.mode != .direct {
+                EntryCard(palette: palette)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .transition(.opacity)
+            }
+
             if vpn.mode == .direct {
                 StrategyCard(palette: palette)
                     .padding(.horizontal, 20)

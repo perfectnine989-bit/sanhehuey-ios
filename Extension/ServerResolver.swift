@@ -4,7 +4,7 @@ import Foundation
 /// Так подключение не зависит от публичных DNS, которые на мобильных сетях и точках доступа могут тормозить.
 /// Последний удачный адрес запоминается на случай, если DNS недоступен.
 enum ServerResolver {
-    private static let cacheKey = "server.ip.v4"
+    private static let cachePrefix = "server.ip.v4."
 
     private final class Box {
         var value: String?
@@ -12,6 +12,7 @@ enum ServerResolver {
 
     static func resolve(_ host: String) -> String {
         if isIPv4(host) { return host }
+        let cacheKey = cachePrefix + host
 
         let box = Box()
         let semaphore = DispatchSemaphore(value: 0)

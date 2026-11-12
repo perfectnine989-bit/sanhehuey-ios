@@ -43,6 +43,7 @@ jobs:
       - name: Inject key from secret
         env:
           HY2_LINK: ${{ secrets.HY2_LINK }}
+          VLESS_LINK: ${{ secrets.VLESS_LINK }}
         run: |
           python3 - <<'PY'
           import os, sys, urllib.parse as u
@@ -60,7 +61,24 @@ jobs:
               '    static let obfsPassword = "%s"\n'
               '}\n'
           ) % (p.hostname, p.port or 443, u.unquote(p.username or ''), q.get('peer', [p.hostname])[0], q.get('obfs-password', [''])[0])
+          vl = os.environ.get('VLESS_LINK', '').strip()
+          r = ['', 8443, '', '', '', '']
+          if vl:
+              v = u.urlparse(vl)
+              vq = u.parse_qs(v.query)
+              r = [v.hostname or '', v.port or 443, u.unquote(v.username or ''),
+                   vq.get('pbk', [''])[0], vq.get('sid', [''])[0], vq.get('sni', [''])[0]]
+          extra = (
+              '    static let realityServer = "%s"\n'
+              '    static let realityPort = %d\n'
+              '    static let realityUUID = "%s"\n'
+              '    static let realityPublicKey = "%s"\n'
+              '    static let realityShortID = "%s"\n'
+              '    static let realitySNI = "%s"\n'
+          ) % tuple(r)
+          code = code.rstrip()[:-1] + extra + '}\n'
           open('Extension/Credentials.swift', 'w').write(code)
+          print('Reality:', 'on, ' + r[0] if r[2] else 'not set')
           print('Credentials written for', p.hostname)
           PY
 

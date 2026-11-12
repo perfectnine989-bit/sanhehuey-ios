@@ -168,7 +168,7 @@ enum SingConfig {
     static let udpPorts = [4500, 3478, 500]
 
     /// `server` — уже готовый IPv4-адрес сервера (см. ServerResolver), чтобы запуск не зависел от DNS.
-    static func build(mode: RouteMode, server: String) -> String {
+    static func build(mode: RouteMode, server: String, reality: Bool = false) -> String {
         // Несколько входов на один сервер. Пока проверка не завершена, идёт первый (4500),
         // потом группа сама держится того порта, который отвечает быстрее всех.
         func hysteria(tag: String, port: Int) -> [String: Any] {
@@ -237,7 +237,32 @@ enum SingConfig {
         if !ruleSets.isEmpty { route["rule_set"] = ruleSets }
 
         let direct: [String: Any] = ["type": "direct", "tag": "direct"]
-        let outbounds: [[String: Any]] = [proxy] + endpoints + [direct]
+        let outbounds: [[String: Any]]
+        if reality {
+            // Вход через VLESS Reality: один TCP-выход с тем же именем "proxy"
+            let vless: [String: Any] = [
+                "type": "vless",
+                "tag": "proxy",
+                "server": server,
+                "server_port": Credentials.realityPort,
+                "uuid": Credentials.realityUUID,
+                "flow": "xtls-rprx-vision",
+                "packet_encoding": "xudp",
+                "tls": [
+                    "enabled": true,
+                    "server_name": Credentials.realitySNI,
+                    "utls": ["enabled": true, "fingerprint": "chrome"],
+                    "reality": [
+                        "enabled": true,
+                        "public_key": Credentials.realityPublicKey,
+                        "short_id": Credentials.realityShortID
+                    ]
+                ]
+            ]
+            outbounds = [vless, direct]
+        } else {
+            outbounds = [proxy] + endpoints + [direct]
+        }
 
         let config: [String: Any] = [
             "log": ["level": "warn", "timestamp": true],
