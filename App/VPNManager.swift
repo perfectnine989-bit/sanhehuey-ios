@@ -21,6 +21,9 @@ final class VPNManager: ObservableObject {
 
     var currentStrategy: DPIStrategy { strategyOverride ?? StrategyStore.load(NetworkWatcher.shared.kind) }
 
+    /// Вход WARP, который сейчас пробует проверка (nil — сохранённый для текущей сети).
+    var warpEndpointOverride: WarpEndpoint?
+
     private var manager: NETunnelProviderManager?
     private var cancellable: AnyCancellable?
     private var sessionStart: Date?
@@ -102,11 +105,18 @@ final class VPNManager: ObservableObject {
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = extensionBundleID()
         proto.serverAddress = "SanHeHuey"
-        proto.providerConfiguration = [
+        var settings: [String: Any] = [
             "mode": mode.rawValue,
             "strategy": currentStrategy.rawValue,
             "bdargs": StrategyStore.customArgs
         ]
+        // WARP касается только режима «Без сервера»
+        if mode == .direct, WarpStore.enabled, let account = WarpStore.account {
+            let endpoint = warpEndpointOverride ?? WarpStore.endpoint(NetworkWatcher.shared.kind)
+            settings["warp"] = account.json
+            settings["warpep"] = endpoint.id
+        }
+        proto.providerConfiguration = settings
         m.protocolConfiguration = proto
         m.localizedDescription = "SanHeHuey"
         m.isEnabled = true

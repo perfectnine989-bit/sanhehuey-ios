@@ -15,10 +15,20 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let strategy = DPIStrategy(rawValue: rawStrategy ?? "") ?? .auto
         let customArgs = (protocolConfiguration as? NETunnelProviderProtocol)?
             .providerConfiguration?["bdargs"] as? String ?? ""
+        let warpJSON = (protocolConfiguration as? NETunnelProviderProtocol)?
+            .providerConfiguration?["warp"] as? String ?? ""
+        let warpEndpoint = (protocolConfiguration as? NETunnelProviderProtocol)?
+            .providerConfiguration?["warpep"] as? String ?? ""
+        let warp: (account: WarpAccount, endpoint: WarpEndpoint)?
+        if let account = WarpAccount.from(json: warpJSON), let endpoint = WarpEndpoint(id: warpEndpoint) {
+            warp = (account, endpoint)
+        } else {
+            warp = nil
+        }
 
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             do {
-                try start(mode: mode, strategy: strategy, customArgs: customArgs)
+                try start(mode: mode, strategy: strategy, customArgs: customArgs, warp: warp)
                 completionHandler(nil)
             } catch {
                 NSLog("[Sanhehuey] start failed: \(error.localizedDescription)")
@@ -27,7 +37,8 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
 
-    private func start(mode: RouteMode, strategy: DPIStrategy, customArgs: String) throws {
+    private func start(mode: RouteMode, strategy: DPIStrategy, customArgs: String,
+                       warp: (account: WarpAccount, endpoint: WarpEndpoint)?) throws {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let working = base.appendingPathComponent("working", isDirectory: true)
         let temp = base.appendingPathComponent("tmp", isDirectory: true)
@@ -51,11 +62,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let config: String
         if mode == .direct {
             // Режим «Без сервера»: сервер не трогаем совсем, даже адрес не ищем.
-            NSLog("[Sanhehuey] direct mode, strategy \(strategy.rawValue)")
+            NSLog("[Sanhehuey] direct mode, strategy \(strategy.rawValue), warp \(warp?.endpoint.id ?? "off")")
             if let args = strategy.engineArgs(custom: customArgs) {
                 ByeDPIEngine.start(port: SingConfig.enginePort, strategyArgs: args)
             }
-            config = SingConfig.buildDirect(strategy: strategy, customArgs: customArgs)
+            config = SingConfig.buildDirect(strategy: strategy, customArgs: customArgs, warp: warp)
         } else {
             let serverIP = ServerResolver.resolve(Credentials.server)
             NSLog("[Sanhehuey] server \(Credentials.server) -> \(serverIP)")

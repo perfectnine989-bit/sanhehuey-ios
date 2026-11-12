@@ -26,11 +26,32 @@ enum SingConfig {
         "signal.org", "proton.me", "protonmail.com", "soundcloud.com", "sndcdn.com", "viber.com"
     ]
 
+    /// ИИ-сервисы: не пускают из России (гео), обход DPI тут не помогает. В «Без сервера» идут через WARP.
+    static let aiSuffixes: [String] = [
+        "openai.com", "chatgpt.com", "oaistatic.com", "oaiusercontent.com", "sora.com",
+        "anthropic.com", "claude.ai", "claude.com", "claudeusercontent.com",
+        "gemini.google.com", "aistudio.google.com", "notebooklm.google.com", "ai.google.dev",
+        "generativelanguage.googleapis.com", "bard.google.com",
+        "grok.com", "x.ai", "perplexity.ai", "copilot.microsoft.com"
+    ]
+
+    /// Telegram режут по адресам, поэтому ловим и домены, и подсети.
+    static let telegramSuffixes: [String] = [
+        "telegram.org", "t.me", "telegram.me", "tdesktop.com", "telegra.ph", "telesco.pe",
+        "tg.dev", "cdn-telegram.org", "telegram-cdn.org"
+    ]
+    static let telegramNets: [String] = [
+        "91.108.4.0/22", "91.108.8.0/22", "91.108.12.0/22", "91.108.16.0/22", "91.108.20.0/22",
+        "91.108.56.0/22", "91.105.192.0/23", "95.161.64.0/20", "149.154.160.0/20", "185.76.151.0/24",
+        "2001:67c:4e8::/48", "2001:b28:f23c::/48", "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2a0a:f280::/32"
+    ]
+
     /// Порт встроенного движка ByeDPI (слушает только 127.0.0.1 внутри расширения).
     static let enginePort = 10801
 
     /// Конфиг без единого соединения с сервером: всё напрямую, обход DPI на телефоне.
-    static func buildDirect(strategy: DPIStrategy, customArgs: String) -> String {
+    static func buildDirect(strategy: DPIStrategy, customArgs: String,
+                            warp: (account: WarpAccount, endpoint: WarpEndpoint)? = nil) -> String {
         let useEngine = strategy.engineArgs(custom: customArgs) != nil
 
         var routeRules: [[String: Any]] = [
@@ -43,6 +64,12 @@ enum SingConfig {
             ["domain_suffix": directSuffixes, "action": "route", "outbound": "direct"]
         ]
         var ruleSets: [[String: Any]] = []
+
+        // ИИ и Telegram — через WARP (если он включён). Стоит раньше остальных правил обхода.
+        if warp != nil {
+            routeRules.append(["domain_suffix": aiSuffixes + telegramSuffixes, "action": "route", "outbound": "warp"])
+            routeRules.append(["ip_cidr": telegramNets, "action": "route", "outbound": "warp"])
+        }
 
         // Как отправлять то, что нужно обходить
         func bypassRule(_ match: [String: Any]) -> [String: Any] {
@@ -104,13 +131,34 @@ enum SingConfig {
         }
         let dns: [String: Any] = ["servers": [doh], "final": "dns-doh", "strategy": "ipv4_only"]
 
-        let config: [String: Any] = [
+        var config: [String: Any] = [
             "log": ["level": "warn", "timestamp": true],
             "dns": dns,
             "inbounds": [tun],
             "outbounds": outbounds,
             "route": route
         ]
+        if let warp {
+            var addresses = [warp.account.v4 + "/32"]
+            if !warp.account.v6.isEmpty { addresses.append(warp.account.v6 + "/128") }
+            let peer: [String: Any] = [
+                "address": warp.endpoint.host,
+                "port": warp.endpoint.port,
+                "public_key": warp.account.peerKey,
+                "allowed_ips": ["0.0.0.0/0", "::/0"],
+                "persistent_keepalive_interval": 25,
+                "reserved": warp.account.reserved
+            ]
+            let endpoint: [String: Any] = [
+                "type": "wireguard",
+                "tag": "warp",
+                "mtu": 1280,
+                "address": addresses,
+                "private_key": warp.account.privateKey,
+                "peers": [peer]
+            ]
+            config["endpoints"] = [endpoint]
+        }
         let data = (try? JSONSerialization.data(withJSONObject: config, options: [.prettyPrinted])) ?? Data()
         return String(data: data, encoding: .utf8) ?? "{}"
     }

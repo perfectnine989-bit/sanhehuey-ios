@@ -64,6 +64,59 @@ jobs:
           print('Credentials written for', p.hostname)
           PY
 
+      - name: Register WARP
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import os, json, base64, urllib.request, datetime
+          P = 2**255 - 19
+          def x25519(k, u):
+              k = bytearray(k); k[0] &= 248; k[31] &= 127; k[31] |= 64
+              k = int.from_bytes(k, 'little'); x1 = u
+              x2, z2, x3, z3, swap = 1, 0, u, 1, 0
+              for t in reversed(range(255)):
+                  b = (k >> t) & 1
+                  if swap ^ b:
+                      x2, x3, z2, z3 = x3, x2, z3, z2
+                  swap = b
+                  A = (x2 + z2) % P; AA = A * A % P
+                  B = (x2 - z2) % P; BB = B * B % P
+                  E = (AA - BB) % P
+                  C = (x3 + z3) % P; D = (x3 - z3) % P
+                  DA = D * A % P; CB = C * B % P
+                  x3 = (DA + CB) ** 2 % P
+                  z3 = x1 * (DA - CB) ** 2 % P
+                  x2 = AA * BB % P
+                  z2 = E * (AA + 121665 * E) % P
+              if swap:
+                  x2, x3, z2, z3 = x3, x2, z3, z2
+              return (x2 * pow(z2, P - 2, P) % P).to_bytes(32, 'little')
+          out = ''
+          try:
+              priv = bytearray(os.urandom(32)); priv[0] &= 248; priv[31] &= 127; priv[31] |= 64
+              pub = x25519(bytes(priv), 9)
+              body = json.dumps({
+                  'key': base64.b64encode(pub).decode(), 'install_id': '', 'fcm_token': '',
+                  'tos': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+                  'model': 'PC', 'serial_number': '', 'locale': 'en_US', 'type': 'Android'
+              }).encode()
+              req = urllib.request.Request('https://api.cloudflareclient.com/v0a2158/reg', data=body, headers={
+                  'Content-Type': 'application/json', 'User-Agent': 'okhttp/3.12.1', 'CF-Client-Version': 'a-6.10-2158'})
+              cfg = json.load(urllib.request.urlopen(req, timeout=20))['config']
+              cid = base64.b64decode(cfg.get('client_id', '') or 'AAAA')
+              adr = cfg['interface']['addresses']
+              out = json.dumps({
+                  'privateKey': base64.b64encode(bytes(priv)).decode(),
+                  'peerKey': cfg['peers'][0]['public_key'],
+                  'v4': adr['v4'], 'v6': adr.get('v6', ''),
+                  'reserved': list(cid[:3])
+              })
+              print('WARP registered, address', adr['v4'])
+          except Exception as e:
+              print('WARP registration failed:', e)
+          open('Shared/WarpBaked.swift', 'w').write('enum WarpBaked {\n    static let json = %s\n}\n' % json.dumps(out))
+          PY
+
       - name: Select newest Xcode 26
         run: |
           XC=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)

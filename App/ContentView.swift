@@ -105,6 +105,10 @@ struct HomeScreen: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 10)
                     .transition(.opacity)
+                WarpCard(palette: palette)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .transition(.opacity)
             }
 
             TrafficStrip(traffic: vpn.traffic, palette: palette, active: vpn.status == .connected)
