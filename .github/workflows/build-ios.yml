@@ -192,6 +192,8 @@ jobs:
           rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
           ldid -SApp/App.entitlements Payload/Sanhehuey.app/Sanhehuey || true
           ldid -SExtension/Extension.entitlements Payload/Sanhehuey.app/PlugIns/SanhehueyTunnel.appex/SanhehueyTunnel || true
+          ldid -S Payload/Sanhehuey.app/PlugIns/SanhehueyWidgets.appex/SanhehueyWidgets || true
+          ls Payload/Sanhehuey.app/PlugIns
           zip -qry Sanhehuey-unsigned.ipa Payload
           ls -la Sanhehuey-unsigned.ipa
 

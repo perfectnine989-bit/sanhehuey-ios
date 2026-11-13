@@ -5,6 +5,9 @@ import UIKit
 
 @MainActor
 final class VPNManager: ObservableObject {
+    /// Один экземпляр на всё приложение: им же пользуется кнопка в Dynamic Island.
+    static let shared = VPNManager()
+
     @Published var status: NEVPNStatus = .disconnected
     @Published var connectedDate: Date?
     @Published var errorText: String?
@@ -75,15 +78,70 @@ final class VPNManager: ObservableObject {
             traffic.stop()
             if !quiet { Haptics.disconnected() }
         }
+        syncIsland()
+    }
+
+    /// Обновляет Dynamic Island под текущее состояние.
+    func syncIsland() {
+        if quiet { return } // во время подбора стратегий остров не дёргаем
+        switch status {
+        case .connected:
+            Island.sync(phase: 2, since: connectedDate ?? Date(), mode: mode.title)
+        case .connecting, .reasserting:
+            Island.sync(phase: 1, since: nil, mode: mode.title)
+        case .disconnecting:
+            break
+        default:
+            Island.sync(phase: 0, since: nil, mode: mode.title)
+        }
+    }
+
+    /// Кнопка в острове: включает или отключает VPN, пока приложение в фоне.
+    func toggleFromIsland() async {
+        Island.viaIsland = true
+        errorText = nil
+        await refresh()
+        if isOn {
+            manager?.connection.stopVPNTunnel()
+            for _ in 0..<40 {
+                if status == .disconnected || status == .invalid { break }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            await Island.push(phase: 0, since: nil, mode: mode.title)
+        } else {
+            await Island.push(phase: 1, since: nil, mode: mode.title)
+            do {
+                let m = try await prepare()
+                try m.connection.startVPNTunnel()
+            } catch {
+                errorText = error.localizedDescription
+            }
+            for _ in 0..<120 {
+                if status == .connected { break }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            if status == .connected {
+                await Island.push(phase: 2, since: connectedDate ?? Date(), mode: mode.title)
+            } else {
+                await Island.push(phase: 0, since: nil, mode: mode.title)
+            }
+        }
     }
 
     /// Находим bundle id расширения прямо внутри приложения (на случай, если подпись переименует ID).
     private func extensionBundleID() -> String {
+        // Расширений теперь два (туннель и виджет острова), берём именно туннель
         if let url = Bundle.main.builtInPlugInsURL,
-           let items = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil),
-           let appex = items.first(where: { $0.pathExtension == "appex" }),
-           let id = Bundle(url: appex)?.bundleIdentifier {
-            return id
+           let items = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil) {
+            for appex in items where appex.pathExtension == "appex" {
+                guard let bundle = Bundle(url: appex),
+                      let info = bundle.infoDictionary?["NSExtension"] as? [String: Any],
+                      let point = info["NSExtensionPointIdentifier"] as? String,
+                      point == "com.apple.networkextension.packet-tunnel",
+                      let id = bundle.bundleIdentifier
+                else { continue }
+                return id
+            }
         }
         return (Bundle.main.bundleIdentifier ?? "") + ".tunnel"
     }

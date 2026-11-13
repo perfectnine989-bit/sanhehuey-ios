@@ -16,6 +16,7 @@ targets:
     sources:
       - App
       - Shared
+      - Island
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: online.sanhehuey.vpn
@@ -27,6 +28,7 @@ targets:
         CFBundleDisplayName: SanHeHuey
         UILaunchScreen: {}
         UIUserInterfaceStyle: Dark
+        NSSupportsLiveActivities: true
         UIRequiresFullScreen: true
         LSApplicationQueriesSchemes: [tg]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
@@ -38,6 +40,26 @@ targets:
     dependencies:
       - target: SanhehueyTunnel
         embed: true
+      - target: SanhehueyWidgets
+        embed: true
+  SanhehueyWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widgets
+      - Island
+      - path: App/Resources/Fonts
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: online.sanhehuey.vpn.widgets
+        SKIP_INSTALL: YES
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: SanHeHuey
+        UIAppFonts: [CinzelDecorative-Black.ttf, Prata-Regular.ttf]
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
   SanhehueyTunnel:
     type: app-extension
     platform: iOS
