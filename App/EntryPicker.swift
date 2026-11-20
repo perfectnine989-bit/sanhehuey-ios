@@ -2,8 +2,9 @@ import SwiftUI
 
 enum EntryStore {
     static var current: ServerEntry {
-        get { ServerEntry(rawValue: UserDefaults.standard.string(forKey: "server.entry") ?? "") ?? .reality }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "server.entry") }
+        // «Умный» и «Весь трафик» всегда идут через CDN; ручного выбора входа больше нет.
+        get { .cdn }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "server.entry.v2") }
     }
 }
 

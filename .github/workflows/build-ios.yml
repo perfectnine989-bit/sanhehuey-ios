@@ -44,6 +44,7 @@ jobs:
         env:
           HY2_LINK: ${{ secrets.HY2_LINK }}
           VLESS_LINK: ${{ secrets.VLESS_LINK }}
+          CDN_LINK: ${{ secrets.CDN_LINK }}
         run: |
           python3 - <<'PY'
           import os, sys, urllib.parse as u
@@ -76,7 +77,24 @@ jobs:
               '    static let realityShortID = "%s"\n'
               '    static let realitySNI = "%s"\n'
           ) % tuple(r)
-          code = code.rstrip()[:-1] + extra + '}\n'
+          cl = os.environ.get('CDN_LINK', '').strip()
+          c = ['', 443, '', '', '', '/']
+          if cl:
+              cu = u.urlparse(cl)
+              cq = u.parse_qs(cu.query)
+              h = cu.hostname or ''
+              c = [h, cu.port or 443, u.unquote(cu.username or ''),
+                   cq.get('sni', [h])[0], cq.get('host', [h])[0], cq.get('path', ['/'])[0]]
+          cdnx = (
+              '    static let cdnServer = "%s"\n'
+              '    static let cdnPort = %d\n'
+              '    static let cdnUUID = "%s"\n'
+              '    static let cdnSNI = "%s"\n'
+              '    static let cdnHost = "%s"\n'
+              '    static let cdnPath = "%s"\n'
+          ) % tuple(c)
+          code = code.rstrip()[:-1] + extra + cdnx + '}\n'
+          print('CDN:', 'on, ' + c[0] if c[2] else 'not set')
           open('Extension/Credentials.swift', 'w').write(code)
           print('Reality:', 'on, ' + r[0] if r[2] else 'not set')
           print('Credentials written for', p.hostname)

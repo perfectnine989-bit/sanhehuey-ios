@@ -12,4 +12,11 @@ enum Credentials {
     static let realityPublicKey = ""
     static let realityShortID = ""
     static let realitySNI = ""
+    // CDN: VLESS + WebSocket + TLS через Cloudflare (секрет CDN_LINK). Пустой uuid — CDN не настроен.
+    static let cdnServer = ""
+    static let cdnPort = 443
+    static let cdnUUID = ""
+    static let cdnSNI = ""
+    static let cdnHost = ""
+    static let cdnPath = "/"
 }

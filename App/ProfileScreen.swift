@@ -39,8 +39,8 @@ struct ProfileScreen: View {
                 }
 
                 infoCard(title: "СОЕДИНЕНИЕ", rows: [
-                    ("Протокол", "Hysteria2"),
-                    ("Маскировка", "Salamander · UDP 443"),
+                    ("Протокол", vpn.mode == .direct ? "Без сервера" : EntryStore.current.protocolName),
+                    ("Маскировка", vpn.mode == .direct ? "Обход DPI на телефоне" : EntryStore.current.masking),
                     ("Режим", vpn.mode.title),
                     ("Статус", vpn.statusText)
                 ])

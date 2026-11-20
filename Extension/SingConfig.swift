@@ -167,8 +167,54 @@ enum SingConfig {
     /// Операторы их почти не трогают (IPsec NAT-T, STUN, IKE), в отличие от 443, который режут и тормозят.
     static let udpPorts = [4500, 3478, 500]
 
+    // MARK: - CDN (Cloudflare)
+
+    /// Диапазоны Cloudflare: (первый адрес, размер).
+    private static let cloudflareRanges: [(base: UInt32, size: UInt32)] = [
+        (0xBC72_6000, 4096),    // 188.114.96.0/20
+        (0xA29E_0000, 131072),  // 162.158.0.0/15
+        (0xAC40_0000, 524288),  // 172.64.0.0/13
+        (0x6810_0000, 524288)   // 104.16.0.0/13
+    ]
+
+    /// Основной адрес (домен, уже превращённый в IP) и несколько случайных адресов Cloudflare.
+    /// sing-box сам проверяет их и держится самого быстрого рабочего.
+    static func cloudflareNodes(primary: String, extra: Int = 7) -> [String] {
+        var nodes = [primary]
+        for i in 0..<extra {
+            let range = cloudflareRanges[i % cloudflareRanges.count]
+            let ip = range.base + UInt32.random(in: 1..<(range.size - 1))
+            nodes.append("\(ip >> 24).\((ip >> 16) & 255).\((ip >> 8) & 255).\(ip & 255)")
+        }
+        return nodes
+    }
+
+    private static func cdnOutbound(tag: String, address: String) -> [String: Any] {
+        let tls: [String: Any] = [
+            "enabled": true,
+            "server_name": Credentials.cdnSNI,
+            "alpn": ["http/1.1"],
+            "utls": ["enabled": true, "fingerprint": "chrome"]
+        ]
+        let transport: [String: Any] = [
+            "type": "ws",
+            "path": Credentials.cdnPath,
+            "headers": ["Host": Credentials.cdnHost]
+        ]
+        return [
+            "type": "vless",
+            "tag": tag,
+            "server": address,
+            "server_port": Credentials.cdnPort,
+            "uuid": Credentials.cdnUUID,
+            "packet_encoding": "xudp",
+            "tls": tls,
+            "transport": transport
+        ]
+    }
+
     /// `server` — уже готовый IPv4-адрес сервера (см. ServerResolver), чтобы запуск не зависел от DNS.
-    static func build(mode: RouteMode, server: String, reality: Bool = false) -> String {
+    static func build(mode: RouteMode, server: String, reality: Bool = false, cdn: Bool = false) -> String {
         // Несколько входов на один сервер. Пока проверка не завершена, идёт первый (4500),
         // потом группа сама держится того порта, который отвечает быстрее всех.
         func hysteria(tag: String, port: Int) -> [String: Any] {
@@ -238,7 +284,23 @@ enum SingConfig {
 
         let direct: [String: Any] = ["type": "direct", "tag": "direct"]
         let outbounds: [[String: Any]]
-        if reality {
+        if cdn {
+            // Вход через CDN: несколько адресов Cloudflare, группа "proxy" выбирает самый быстрый рабочий
+            let nodes = cloudflareNodes(primary: server)
+            let cdnTags: [String] = nodes.indices.map { "cdn-\($0)" }
+            let cdnGroup: [String: Any] = [
+                "type": "urltest",
+                "tag": "proxy",
+                "outbounds": cdnTags,
+                "url": "https://www.gstatic.com/generate_204",
+                "interval": "3m",
+                "tolerance": 100,
+                "idle_timeout": "30m",
+                "interrupt_exist_connections": false
+            ]
+            let cdnOutbounds: [[String: Any]] = nodes.indices.map { cdnOutbound(tag: "cdn-\($0)", address: nodes[$0]) }
+            outbounds = [cdnGroup] + cdnOutbounds + [direct]
+        } else if reality {
             // Вход через VLESS Reality: один TCP-выход с тем же именем "proxy"
             let vless: [String: Any] = [
                 "type": "vless",

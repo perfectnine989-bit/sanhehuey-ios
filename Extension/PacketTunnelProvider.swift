@@ -21,7 +21,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             .providerConfiguration?["warpep"] as? String ?? ""
         let rawEntry = (protocolConfiguration as? NETunnelProviderProtocol)?
             .providerConfiguration?["entry"] as? String
-        let entry = ServerEntry(rawValue: rawEntry ?? "") ?? .reality
+        let entry = ServerEntry(rawValue: rawEntry ?? "") ?? .cdn
         let warp: (account: WarpAccount, endpoint: WarpEndpoint)?
         if let account = WarpAccount.from(json: warpJSON), let endpoint = WarpEndpoint(id: warpEndpoint) {
             warp = (account, endpoint)
@@ -71,12 +71,14 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             }
             config = SingConfig.buildDirect(strategy: strategy, customArgs: customArgs, warp: warp)
         } else {
-            // Reality включается, только если он выбран и ключ вшит при сборке; иначе как раньше, Hysteria2
-            let useReality = entry == .reality && !Credentials.realityUUID.isEmpty
-            let host = useReality ? Credentials.realityServer : Credentials.server
+            // CDN — основной вход. Если он не вшит при сборке, пробуем Reality, затем Hysteria2.
+            let useCDN = !Credentials.cdnUUID.isEmpty
+            let useReality = !useCDN && !Credentials.realityUUID.isEmpty
+            let host = useCDN ? Credentials.cdnServer : (useReality ? Credentials.realityServer : Credentials.server)
             let serverIP = ServerResolver.resolve(host)
-            NSLog("[Sanhehuey] \(useReality ? "reality" : "hysteria2") \(host) -> \(serverIP)")
-            config = SingConfig.build(mode: mode, server: serverIP, reality: useReality)
+            let label = useCDN ? "cdn" : (useReality ? "reality" : "hysteria2")
+            NSLog("[Sanhehuey] \(label) \(host) -> \(serverIP)")
+            config = SingConfig.build(mode: mode, server: serverIP, reality: useReality, cdn: useCDN)
         }
         let service = LibboxNewService(config, platform, &error)
         if let error { throw error }
